@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\ActivateLicenseRequest;
 use App\Http\Requests\Api\V1\StoreLicenseRequest;
 use App\Http\Resources\Api\V1\LicenseResource;
 use App\Models\License;
+use App\Services\CacheService;
 use App\Services\LicenseActivationService;
 use App\Services\LicenseKeyGenerator;
 use Illuminate\Http\Request;
@@ -15,14 +16,18 @@ class LicenseController extends Controller
 {
     public function __construct(
         protected LicenseActivationService $activationService,
-        protected LicenseKeyGenerator $keyGenerator
+        protected LicenseKeyGenerator $keyGenerator,
+        protected CacheService $cacheService
     ) {
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $licenses = License::with(['product', 'customer', 'activations'])
-            ->paginate(25);
+        $perPage = min($request->get('per_page', 25), 100); // Max 100 per page
+
+        $licenses = License::with(['product:id,name,slug,type', 'customer:id,email,first_name,last_name', 'activations:id,license_id,activation_type,status'])
+            ->select('id', 'license_key', 'product_id', 'customer_id', 'license_type', 'max_activations', 'status', 'expires_at', 'created_at')
+            ->paginate($perPage);
 
         return LicenseResource::collection($licenses);
     }
@@ -85,24 +90,18 @@ class LicenseController extends Controller
     public function validateKey(Request $request)
     {
         $data = $request->validate([
-            'license_key' => ['required', 'string'],
+            'license_key' => ['required', 'string', 'max:255'],
         ]);
 
-        $license = License::where('license_key', $data['license_key'])->first();
+        // Use cache for validation (frequently called endpoint)
+        $result = $this->cacheService->getLicenseValidation($data['license_key']);
 
-        if (! $license) {
-            return response()->json(['valid' => false, 'reason' => 'not_found'], 404);
+        if (! $result['valid']) {
+            $statusCode = $result['reason'] === 'not_found' ? 404 : 200;
+            return response()->json($result, $statusCode);
         }
 
-        if ($license->status !== 'active') {
-            return response()->json(['valid' => false, 'reason' => $license->status], 200);
-        }
-
-        if ($license->expires_at && $license->expires_at->isPast()) {
-            return response()->json(['valid' => false, 'reason' => 'expired'], 200);
-        }
-
-        return response()->json(['valid' => true], 200);
+        return response()->json($result, 200);
     }
 
     public function activate(ActivateLicenseRequest $request)

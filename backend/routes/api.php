@@ -37,7 +37,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/webhooks/ticket-created', [\App\Http\Controllers\Api\V1\WebhookController::class, 'ticketCreated']);
     Route::post('/webhooks/payment-received', [\App\Http\Controllers\Api\V1\WebhookController::class, 'paymentReceived']);
 
-    Route::middleware(['api.key', 'rate.limit:60,1'])->group(function () {
+    Route::middleware(['sanitize.input', 'api.key', 'rate.limit:60,1'])->group(function () {
         // Products
         Route::apiResource('products', ProductController::class);
 
@@ -63,7 +63,7 @@ Route::prefix('v1')->group(function () {
         Route::post('tickets/{ticket}/close', [TicketController::class, 'close']);
         Route::get('tickets/{ticket}/replies', [TicketController::class, 'listReplies']);
         Route::post('tickets/{ticket}/replies', [TicketController::class, 'addReply']);
-        Route::post('tickets/{ticket}/attachments', [TicketController::class, 'uploadAttachment']);
+        Route::post('tickets/{ticket}/attachments', [TicketController::class, 'uploadAttachment'])->middleware('secure.upload');
 
         // Payments
         Route::apiResource('payments', \App\Http\Controllers\Api\V1\PaymentController::class);

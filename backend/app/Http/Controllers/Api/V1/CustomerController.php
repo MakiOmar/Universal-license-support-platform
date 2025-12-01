@@ -10,9 +10,12 @@ use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $customers = Customer::query()->paginate(25);
+        $perPage = min($request->get('per_page', 25), 100);
+
+        $customers = Customer::select('id', 'email', 'first_name', 'last_name', 'company', 'phone', 'status', 'created_at', 'updated_at')
+            ->paginate($perPage);
 
         return CustomerResource::collection($customers);
     }

@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'api.key' => ApiKeyAuth::class,
             'rate.limit' => \App\Http\Middleware\RateLimitMiddleware::class,
+            'sanitize.input' => \App\Http\Middleware\SanitizeInput::class,
+            'secure.upload' => \App\Http\Middleware\SecureFileUpload::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

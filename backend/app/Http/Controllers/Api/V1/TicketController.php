@@ -15,7 +15,13 @@ class TicketController extends Controller
 {
     public function index(Request $request)
     {
-        $query = SupportTicket::with(['customer', 'license', 'product']);
+        $perPage = min($request->get('per_page', 25), 100);
+
+        $query = SupportTicket::with([
+            'customer:id,email,first_name,last_name',
+            'license:id,license_key,product_id',
+            'product:id,name,slug',
+        ])->select('id', 'ticket_number', 'customer_id', 'license_id', 'product_id', 'subject', 'priority', 'status', 'category', 'created_at', 'updated_at');
 
         if ($request->filled('status')) {
             $query->where('status', $request->get('status'));
@@ -33,7 +39,7 @@ class TicketController extends Controller
             $query->where('customer_id', $request->get('customer_id'));
         }
 
-        $tickets = $query->orderByDesc('created_at')->paginate(25);
+        $tickets = $query->orderByDesc('created_at')->paginate($perPage);
 
         return SupportTicketResource::collection($tickets);
     }

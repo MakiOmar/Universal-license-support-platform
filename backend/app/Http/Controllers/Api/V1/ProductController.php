@@ -10,9 +10,12 @@ use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::query()->paginate(25);
+        $perPage = min($request->get('per_page', 25), 100);
+
+        $products = Product::select('id', 'name', 'slug', 'description', 'type', 'version', 'status', 'created_at', 'updated_at')
+            ->paginate($perPage);
 
         return ProductResource::collection($products);
     }

@@ -24,13 +24,17 @@ class ApiKeyAuth
             return response()->json(['message' => 'API key required'], 401);
         }
 
-        $apiKey = ApiKey::where('api_key', $token)
-            ->where('status', 'active')
-            ->where(function ($query): void {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->first();
+        // Use cache to prevent excessive database queries
+        $cacheKey = 'api_key_' . hash('sha256', $token);
+        $apiKey = \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($token) {
+            return ApiKey::where('api_key', $token)
+                ->where('status', 'active')
+                ->where(function ($query): void {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', now());
+                })
+                ->first();
+        });
 
         if (! $apiKey) {
             return response()->json(['message' => 'Invalid or expired API key'], 401);
