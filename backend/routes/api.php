@@ -24,27 +24,29 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
-    // Products
-    Route::apiResource('products', ProductController::class);
+    Route::middleware(['api.key', 'rate.limit:60,1'])->group(function () {
+        // Products
+        Route::apiResource('products', ProductController::class);
 
-    // Customers
-    Route::apiResource('customers', CustomerController::class);
+        // Customers
+        Route::apiResource('customers', CustomerController::class);
 
-    // Licenses
-    Route::get('licenses/validate', [LicenseController::class, 'validateKey']);
-    Route::post('licenses/activate', [LicenseController::class, 'activate']);
-    Route::post('licenses/deactivate', [LicenseController::class, 'deactivate']);
-    Route::post('licenses/{license}/transfer', [LicenseController::class, 'transfer']);
-    Route::apiResource('licenses', LicenseController::class);
+        // Licenses
+        Route::get('licenses/validate', [LicenseController::class, 'validateKey']);
+        Route::post('licenses/activate', [LicenseController::class, 'activate']);
+        Route::post('licenses/deactivate', [LicenseController::class, 'deactivate']);
+        Route::post('licenses/{license}/transfer', [LicenseController::class, 'transfer']);
+        Route::apiResource('licenses', LicenseController::class);
 
-    // Support tickets
-    Route::get('tickets', [TicketController::class, 'index']);
-    Route::post('tickets', [TicketController::class, 'store']);
-    Route::get('tickets/{ticket}', [TicketController::class, 'show']);
-    Route::put('tickets/{ticket}', [TicketController::class, 'update']);
-    Route::post('tickets/{ticket}/close', [TicketController::class, 'close']);
-    Route::get('tickets/{ticket}/replies', [TicketController::class, 'listReplies']);
-    Route::post('tickets/{ticket}/replies', [TicketController::class, 'addReply']);
+        // Support tickets
+        Route::get('tickets', [TicketController::class, 'index']);
+        Route::post('tickets', [TicketController::class, 'store']);
+        Route::get('tickets/{ticket}', [TicketController::class, 'show']);
+        Route::put('tickets/{ticket}', [TicketController::class, 'update']);
+        Route::post('tickets/{ticket}/close', [TicketController::class, 'close']);
+        Route::get('tickets/{ticket}/replies', [TicketController::class, 'listReplies']);
+        Route::post('tickets/{ticket}/replies', [TicketController::class, 'addReply']);
+    });
 });
 
 

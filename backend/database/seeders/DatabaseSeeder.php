@@ -2,7 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\ApiKey;
+use App\Models\Customer;
+use App\Models\License;
+use App\Models\Product;
+use App\Models\SupportTicket;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,11 +19,21 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $products = Product::factory(5)->create();
+        $customers = Customer::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        License::factory(20)->create();
+
+        SupportTicket::factory(30)->create();
+
+        // One API key per customer for the first product
+        $primaryProduct = $products->first();
+
+        foreach ($customers as $customer) {
+            ApiKey::factory()->create([
+                'customer_id' => $customer->id,
+                'product_id' => $primaryProduct?->id ?? $products->first()->id,
+            ]);
+        }
     }
 }

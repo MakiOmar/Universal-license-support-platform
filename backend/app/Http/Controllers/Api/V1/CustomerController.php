@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\CustomerResource;
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
@@ -12,14 +14,14 @@ class CustomerController extends Controller
     {
         $customers = Customer::query()->paginate(25);
 
-        return response()->json($customers);
+        return CustomerResource::collection($customers);
     }
 
     public function show(Customer $customer)
     {
         $customer->load(['licenses', 'supportTickets']);
 
-        return response()->json($customer);
+        return new CustomerResource($customer);
     }
 
     public function store(Request $request)
@@ -30,12 +32,12 @@ class CustomerController extends Controller
             'last_name' => ['nullable', 'string', 'max:100'],
             'company' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'status' => ['nullable', 'string', 'max:20'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive', 'suspended'])],
         ]);
 
         $customer = Customer::create($data);
 
-        return response()->json($customer, 201);
+        return new CustomerResource($customer);
     }
 
     public function update(Request $request, Customer $customer)
@@ -46,12 +48,12 @@ class CustomerController extends Controller
             'last_name' => ['nullable', 'string', 'max:100'],
             'company' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'status' => ['nullable', 'string', 'max:20'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive', 'suspended'])],
         ]);
 
         $customer->update($data);
 
-        return response()->json($customer);
+        return new CustomerResource($customer);
     }
 
     public function destroy(Customer $customer)

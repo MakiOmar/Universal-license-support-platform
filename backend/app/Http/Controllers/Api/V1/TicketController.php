@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreTicketRequest;
+use App\Http\Resources\Api\V1\SupportTicketResource;
+use App\Http\Resources\Api\V1\TicketReplyResource;
 use App\Models\SupportTicket;
 use App\Models\TicketReply;
 use Illuminate\Http\Request;
@@ -22,54 +25,61 @@ class TicketController extends Controller
             $query->where('priority', $request->get('priority'));
         }
 
+        if ($request->filled('category')) {
+            $query->where('category', $request->get('category'));
+        }
+
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->get('customer_id'));
+        }
+
         $tickets = $query->orderByDesc('created_at')->paginate(25);
 
-        return response()->json($tickets);
+        return SupportTicketResource::collection($tickets);
     }
 
     public function show(SupportTicket $ticket)
     {
         $ticket->load(['customer', 'license', 'product', 'replies']);
 
-        return response()->json($ticket);
+        return new SupportTicketResource($ticket);
     }
 
-    public function store(Request $request)
+    public function store(StoreTicketRequest $request)
     {
-        $data = $request->validate([
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
-            'license_id' => ['nullable', 'integer', 'exists:licenses,id'],
-            'product_id' => ['nullable', 'integer', 'exists:products,id'],
-            'subject' => ['required', 'string', 'max:255'],
-            'description' => ['required', 'string'],
-            'priority' => ['nullable', 'string', 'max:20'],
-            'category' => ['nullable', 'string', 'max:50'],
-        ]);
+        $data = $request->validated();
 
-        $ticketNumber = 'TKT-' . now()->format('Y') . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+        // Generate unique ticket number
+        do {
+            $ticketNumber = 'TKT-' . now()->format('Y') . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+        } while (SupportTicket::where('ticket_number', $ticketNumber)->exists());
 
         $ticket = SupportTicket::create(array_merge($data, [
             'ticket_number' => $ticketNumber,
             'status' => 'open',
+            'priority' => $data['priority'] ?? 'medium',
         ]));
 
-        return response()->json($ticket, 201);
+        $ticket->load(['customer', 'license', 'product']);
+
+        return new SupportTicketResource($ticket);
     }
 
     public function update(Request $request, SupportTicket $ticket)
     {
         $data = $request->validate([
             'subject' => ['sometimes', 'string', 'max:255'],
-            'description' => ['sometimes', 'string'],
-            'priority' => ['sometimes', 'string', 'max:20'],
-            'status' => ['sometimes', 'string', 'max:20'],
-            'category' => ['sometimes', 'string', 'max:50'],
+            'description' => ['sometimes', 'string', 'max:5000'],
+            'priority' => ['sometimes', 'string', 'in:low,medium,high,urgent'],
+            'status' => ['sometimes', 'string', 'in:open,in_progress,waiting_customer,resolved,closed'],
+            'category' => ['sometimes', 'string', 'in:technical,billing,feature_request,bug_report,account,license'],
             'assigned_to' => ['nullable', 'integer'],
         ]);
 
         $ticket->update($data);
+        $ticket->load(['customer', 'license', 'product', 'replies']);
 
-        return response()->json($ticket);
+        return new SupportTicketResource($ticket);
     }
 
     public function close(SupportTicket $ticket)
@@ -77,31 +87,33 @@ class TicketController extends Controller
         $ticket->status = 'closed';
         $ticket->resolved_at = now();
         $ticket->save();
+        $ticket->load(['customer', 'license', 'product', 'replies']);
 
-        return response()->json($ticket);
+        return new SupportTicketResource($ticket);
     }
 
     public function addReply(Request $request, SupportTicket $ticket)
     {
         $data = $request->validate([
             'user_id' => ['required', 'integer'],
-            'user_type' => ['required', 'string', 'max:20'],
-            'message' => ['required', 'string'],
+            'user_type' => ['required', 'string', 'in:customer,agent,system'],
+            'message' => ['required', 'string', 'max:5000'],
             'is_internal' => ['nullable', 'boolean'],
         ]);
 
         $reply = TicketReply::create(array_merge($data, [
             'ticket_id' => $ticket->id,
+            'is_internal' => $data['is_internal'] ?? false,
         ]));
 
-        return response()->json($reply, 201);
+        return new TicketReplyResource($reply);
     }
 
     public function listReplies(SupportTicket $ticket)
     {
         $replies = $ticket->replies()->orderBy('created_at')->get();
 
-        return response()->json($replies);
+        return TicketReplyResource::collection($replies);
     }
 }
 

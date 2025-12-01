@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -12,12 +14,12 @@ class ProductController extends Controller
     {
         $products = Product::query()->paginate(25);
 
-        return response()->json($products);
+        return ProductResource::collection($products);
     }
 
     public function show(Product $product)
     {
-        return response()->json($product);
+        return new ProductResource($product);
     }
 
     public function store(Request $request)
@@ -26,14 +28,14 @@ class ProductController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:products,slug'],
             'description' => ['nullable', 'string'],
-            'type' => ['required', 'string', 'max:50'],
+            'type' => ['required', 'string', Rule::in(['wordpress_plugin', 'web_app', 'desktop_app', 'mobile_app', 'api_service', 'saas_product'])],
             'version' => ['nullable', 'string', 'max:50'],
-            'status' => ['nullable', 'string', 'max:20'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive', 'archived'])],
         ]);
 
         $product = Product::create($data);
 
-        return response()->json($product, 201);
+        return new ProductResource($product);
     }
 
     public function update(Request $request, Product $product)
@@ -42,14 +44,14 @@ class ProductController extends Controller
             'name' => ['sometimes', 'string', 'max:255'],
             'slug' => ['sometimes', 'string', 'max:255', 'unique:products,slug,' . $product->id],
             'description' => ['nullable', 'string'],
-            'type' => ['sometimes', 'string', 'max:50'],
+            'type' => ['sometimes', 'string', Rule::in(['wordpress_plugin', 'web_app', 'desktop_app', 'mobile_app', 'api_service', 'saas_product'])],
             'version' => ['nullable', 'string', 'max:50'],
-            'status' => ['nullable', 'string', 'max:20'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive', 'archived'])],
         ]);
 
         $product->update($data);
 
-        return response()->json($product);
+        return new ProductResource($product);
     }
 
     public function destroy(Product $product)
