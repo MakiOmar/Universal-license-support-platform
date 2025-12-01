@@ -3,12 +3,14 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Laravel CORS Configuration
+    | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
     |
-    | This configuration allows API calls from any localhost origin, including
-    | Vite / Nuxt / other npm dev servers running on arbitrary ports.
-    | For production, you should restrict these to your real domains.
+    | Here you may configure your settings for cross-origin resource sharing
+    | or "CORS". This determines what cross-origin operations may execute
+    | in web browsers. You are free to adjust these settings as needed.
+    |
+    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
     |
     */
 
@@ -17,8 +19,10 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'http://localhost',
-        'http://127.0.0.1',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5173', // Vite default port (Vue dashboard)
+        'http://127.0.0.1:5173',
     ],
 
     'allowed_origins_patterns' => [
@@ -32,7 +36,7 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 ];
 
 
