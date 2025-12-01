@@ -159,6 +159,48 @@ class LicenseController extends Controller
             'license' => new LicenseResource($license),
         ]);
     }
+
+    public function getActivations(Request $request, string $licenseKey)
+    {
+        $license = License::where('license_key', $licenseKey)->firstOrFail();
+        $license->load('activations');
+
+        return \App\Http\Resources\Api\V1\LicenseActivationResource::collection(
+            $license->activations()->where('status', 'active')->get()
+        );
+    }
+
+    public function checkUpdates(Request $request, string $licenseKey)
+    {
+        $data = $request->validate([
+            'current_version' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $license = License::where('license_key', $licenseKey)
+            ->with('product')
+            ->firstOrFail();
+
+        if ($license->status !== 'active') {
+            return response()->json([
+                'has_update' => false,
+                'message' => 'License is not active.',
+            ], 400);
+        }
+
+        $product = $license->product;
+        $currentVersion = $data['current_version'] ?? null;
+        $latestVersion = $product->version;
+
+        $hasUpdate = $currentVersion && $latestVersion && version_compare($currentVersion, $latestVersion, '<');
+
+        return response()->json([
+            'has_update' => $hasUpdate,
+            'current_version' => $currentVersion,
+            'latest_version' => $latestVersion,
+            'product' => new \App\Http\Resources\Api\V1\ProductResource($product),
+            'update_url' => $hasUpdate ? config('app.url') . '/downloads/' . $product->slug : null,
+        ]);
+    }
 }
 
 

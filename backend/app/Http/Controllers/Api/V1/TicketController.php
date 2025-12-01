@@ -115,6 +115,40 @@ class TicketController extends Controller
 
         return TicketReplyResource::collection($replies);
     }
+
+    public function uploadAttachment(Request $request, SupportTicket $ticket)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt,log'],
+            'reply_id' => ['nullable', 'integer', 'exists:ticket_replies,id'],
+        ]);
+
+        $file = $request->file('file');
+        $filename = time() . '_' . $file->getClientOriginalName();
+        $path = $file->storeAs('ticket-attachments', $filename, 'public');
+
+        $attachment = \App\Models\TicketAttachment::create([
+            'ticket_id' => $ticket->id,
+            'reply_id' => $request->input('reply_id'),
+            'filename' => $file->getClientOriginalName(),
+            'file_path' => $path,
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'uploaded_by' => $request->input('user_id', $ticket->customer_id),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'attachment' => [
+                'id' => $attachment->id,
+                'filename' => $attachment->filename,
+                'file_size' => $attachment->file_size,
+                'mime_type' => $attachment->mime_type,
+                'url' => asset('storage/' . $path),
+                'created_at' => $attachment->created_at->toIso8601String(),
+            ],
+        ], 201);
+    }
 }
 
 

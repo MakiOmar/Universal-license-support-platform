@@ -62,6 +62,25 @@ class CustomerController extends Controller
 
         return response()->json(null, 204);
     }
+
+    public function getLicenses(Customer $customer)
+    {
+        $licenses = $customer->licenses()
+            ->with(['product', 'activations'])
+            ->paginate(25);
+
+        return \App\Http\Resources\Api\V1\LicenseResource::collection($licenses);
+    }
+
+    public function getTickets(Customer $customer)
+    {
+        $tickets = $customer->supportTickets()
+            ->with(['license', 'product', 'replies'])
+            ->orderByDesc('created_at')
+            ->paginate(25);
+
+        return \App\Http\Resources\Api\V1\SupportTicketResource::collection($tickets);
+    }
 }
 
 
