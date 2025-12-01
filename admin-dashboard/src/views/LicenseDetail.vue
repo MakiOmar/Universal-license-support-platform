@@ -77,7 +77,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import api from '../services/api'
+import api, { ADMIN_API_BASE_URL } from '../services/api'
 
 const route = useRoute()
 const license = ref<any>(null)
@@ -102,7 +102,7 @@ function formatDate(date: string | null) {
 async function fetchLicense() {
   loading.value = true
   try {
-    const response = await api.get(`/licenses/${route.params.id}`)
+    const response = await api.get(`${ADMIN_API_BASE_URL}/licenses/${route.params.id}`)
     license.value = response.data.data || response.data
     activations.value = license.value.activations || []
   } catch (error) {

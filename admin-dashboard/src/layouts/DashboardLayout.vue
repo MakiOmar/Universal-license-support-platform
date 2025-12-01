@@ -30,8 +30,11 @@
     <!-- Main content -->
     <div class="ml-64">
       <header class="bg-white shadow">
-        <div class="px-8 py-4">
+        <div class="px-8 py-4 flex justify-between items-center">
           <h2 class="text-2xl font-semibold text-gray-800">{{ currentPageTitle }}</h2>
+          <div v-if="authStore.user" class="text-sm text-gray-600">
+            Logged in as: <span class="font-medium">{{ authStore.user.name }}</span>
+          </div>
         </div>
       </header>
       <main class="p-8">
@@ -42,9 +45,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+
+onMounted(() => {
+  if (authStore.isAuthenticated && !authStore.user) {
+    authStore.fetchUser()
+  }
+})
 
 const router = useRouter()
 const route = useRoute()

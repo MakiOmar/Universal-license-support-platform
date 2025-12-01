@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import api from '../services/api'
+import api, { ADMIN_API_BASE_URL } from '../services/api'
 
 const products = ref([])
 const loading = ref(false)
@@ -79,7 +79,7 @@ function formatDate(date: string | null) {
 async function fetchProducts() {
   loading.value = true
   try {
-    const response = await api.get('/products', { params: { per_page: 100 } })
+    const response = await api.get(`${ADMIN_API_BASE_URL}/products`, { params: { per_page: 100 } })
     products.value = response.data.data || []
   } catch (error) {
     console.error('Failed to fetch products:', error)

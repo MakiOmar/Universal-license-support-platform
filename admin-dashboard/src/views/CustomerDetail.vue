@@ -71,7 +71,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import api from '../services/api'
+import api, { ADMIN_API_BASE_URL } from '../services/api'
 
 const route = useRoute()
 const customer = ref<any>(null)
@@ -102,7 +102,7 @@ function formatDate(date: string | null) {
 async function fetchCustomer() {
   loading.value = true
   try {
-    const response = await api.get(`/customers/${route.params.id}`)
+    const response = await api.get(`${ADMIN_API_BASE_URL}/customers/${route.params.id}`)
     customer.value = response.data.data || response.data
     licenses.value = customer.value.licenses || []
   } catch (error) {

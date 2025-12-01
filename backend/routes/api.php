@@ -24,6 +24,45 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
+    // Admin authentication routes (public)
+    Route::post('/admin/login', [\App\Http\Controllers\Api\V1\AdminAuthController::class, 'login']);
+
+    // Admin routes (protected with Sanctum - for dashboard)
+    Route::middleware(['auth:sanctum', 'sanitize.input', 'rate.limit:60,1'])->prefix('admin')->group(function () {
+        Route::get('/me', [\App\Http\Controllers\Api\V1\AdminAuthController::class, 'me']);
+        Route::post('/logout', [\App\Http\Controllers\Api\V1\AdminAuthController::class, 'logout']);
+
+        // Products
+        Route::apiResource('products', ProductController::class);
+
+        // Customers
+        Route::apiResource('customers', CustomerController::class);
+        Route::get('customers/{customer}/licenses', [CustomerController::class, 'getLicenses']);
+        Route::get('customers/{customer}/tickets', [CustomerController::class, 'getTickets']);
+
+        // Licenses
+        Route::get('licenses/validate', [LicenseController::class, 'validateKey']);
+        Route::post('licenses/activate', [LicenseController::class, 'activate']);
+        Route::post('licenses/deactivate', [LicenseController::class, 'deactivate']);
+        Route::get('licenses/by-key/{license_key}/activations', [LicenseController::class, 'getActivations']);
+        Route::get('licenses/by-key/{license_key}/updates', [LicenseController::class, 'checkUpdates']);
+        Route::apiResource('licenses', LicenseController::class);
+        Route::post('licenses/{license}/transfer', [LicenseController::class, 'transfer']);
+
+        // Support tickets
+        Route::get('tickets', [TicketController::class, 'index']);
+        Route::post('tickets', [TicketController::class, 'store']);
+        Route::get('tickets/{ticket}', [TicketController::class, 'show']);
+        Route::put('tickets/{ticket}', [TicketController::class, 'update']);
+        Route::post('tickets/{ticket}/close', [TicketController::class, 'close']);
+        Route::get('tickets/{ticket}/replies', [TicketController::class, 'listReplies']);
+        Route::post('tickets/{ticket}/replies', [TicketController::class, 'addReply']);
+        Route::post('tickets/{ticket}/attachments', [TicketController::class, 'uploadAttachment'])->middleware('secure.upload');
+
+        // Payments
+        Route::apiResource('payments', \App\Http\Controllers\Api\V1\PaymentController::class);
+    });
+
     // Public customer authentication routes
     Route::post('/auth/register', [\App\Http\Controllers\Api\V1\AuthController::class, 'register']);
     Route::post('/auth/login', [\App\Http\Controllers\Api\V1\AuthController::class, 'login']);
@@ -37,6 +76,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/webhooks/ticket-created', [\App\Http\Controllers\Api\V1\WebhookController::class, 'ticketCreated']);
     Route::post('/webhooks/payment-received', [\App\Http\Controllers\Api\V1\WebhookController::class, 'paymentReceived']);
 
+    // Public API routes (protected with API key - for external integrations)
     Route::middleware(['sanitize.input', 'api.key', 'rate.limit:60,1'])->group(function () {
         // Products
         Route::apiResource('products', ProductController::class);
@@ -69,6 +109,3 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('payments', \App\Http\Controllers\Api\V1\PaymentController::class);
     });
 });
-
-
-

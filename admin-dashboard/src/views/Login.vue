@@ -6,21 +6,37 @@
           Admin Dashboard
         </h2>
         <p class="mt-2 text-center text-sm text-gray-600">
-          Enter your API key to continue
+          Sign in to your admin account
         </p>
       </div>
       <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
-        <div>
-          <label for="api-key" class="sr-only">API Key</label>
-          <input
-            id="api-key"
-            v-model="apiKey"
-            name="api-key"
-            type="password"
-            required
-            class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-            placeholder="API Key"
-          />
+        <div class="space-y-4">
+          <div>
+            <label for="email" class="sr-only">Email address</label>
+            <input
+              id="email"
+              v-model="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Email address"
+            />
+          </div>
+          <div>
+            <label for="password" class="sr-only">Password</label>
+            <input
+              id="password"
+              v-model="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Password"
+            />
+          </div>
         </div>
 
         <div v-if="error" class="text-red-600 text-sm text-center">
@@ -30,10 +46,10 @@
         <div>
           <button
             type="submit"
-            :disabled="loading"
+            :disabled="loading || authStore.loading"
             class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            <span v-if="loading">Signing in...</span>
+            <span v-if="loading || authStore.loading">Signing in...</span>
             <span v-else>Sign in</span>
           </button>
         </div>
@@ -50,7 +66,8 @@ import { useAuthStore } from '../stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const apiKey = ref('')
+const email = ref('')
+const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
@@ -58,12 +75,13 @@ async function handleLogin() {
   error.value = ''
   loading.value = true
   
-  const success = await authStore.login(apiKey.value)
+  const success = await authStore.login(email.value, password.value)
   
   if (success) {
+    await authStore.fetchUser()
     router.push({ name: 'Dashboard' })
   } else {
-    error.value = 'Invalid API key. Please try again.'
+    error.value = 'Invalid email or password. Please try again.'
   }
   
   loading.value = false
