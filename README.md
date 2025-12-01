@@ -1,0 +1,514 @@
+# Universal License Support Platform (ULSP)
+
+A comprehensive SaaS platform for managing software licenses, support tickets, and customer relationships across multiple products.
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Project Structure](#project-structure)
+- [Technology Stack](#technology-stack)
+- [What's Been Completed](#whats-been-completed)
+- [What's Next](#whats-next)
+- [Setup Instructions](#setup-instructions)
+- [API Documentation](#api-documentation)
+- [Development Guidelines](#development-guidelines)
+
+## 🎯 Overview
+
+ULSP is a multi-product license management and support ticket platform that allows you to:
+- Manage multiple software products from a single dashboard
+- Generate and validate license keys for different product types
+- Handle customer support tickets
+- Track license activations and usage
+- Process payments and subscriptions
+- Provide API access for external integrations
+
+## 📁 Project Structure
+
+```
+ulsp/
+├── backend/              # Laravel API backend
+│   ├── app/
+│   │   ├── Http/
+│   │   │   ├── Controllers/Api/V1/
+│   │   │   ├── Middleware/
+│   │   │   └── Requests/
+│   │   ├── Models/
+│   │   ├── Services/
+│   │   └── Http/Resources/
+│   ├── database/
+│   │   ├── migrations/
+│   │   ├── seeders/
+│   │   └── factories/
+│   └── routes/
+│       └── api.php
+├── admin-dashboard/      # Vue.js admin dashboard
+│   ├── src/
+│   │   ├── views/
+│   │   ├── layouts/
+│   │   ├── stores/
+│   │   ├── services/
+│   │   └── router/
+│   └── package.json
+├── site-front/           # Nuxt.js public-facing site (TODO)
+└── README.md
+
+```
+
+## 🛠 Technology Stack
+
+### Backend
+- **Framework**: Laravel 12.40.2
+- **Database**: MySQL 8.0+
+- **Authentication**: Laravel Sanctum (for admin), JWT (for customers)
+- **API**: RESTful API with versioning (v1)
+
+### Admin Dashboard
+- **Framework**: Vue 3 + TypeScript
+- **Build Tool**: Vite
+- **State Management**: Pinia
+- **Routing**: Vue Router
+- **Styling**: Tailwind CSS
+- **HTTP Client**: Axios
+
+### Public Site (Planned)
+- **Framework**: Nuxt.js 3
+- **SSR**: Server-Side Rendering
+- **Styling**: Tailwind CSS
+
+## ✅ What's Been Completed
+
+### Backend (Laravel API)
+
+#### Core Features
+- ✅ **Database Schema**: Complete migrations for all core tables
+  - Products, Customers, Licenses, License Activations
+  - Support Tickets, Ticket Replies, Ticket Attachments
+  - Payments, API Keys
+  - Users (for admin authentication)
+
+- ✅ **Models & Relationships**: All Eloquent models with relationships
+  - Product, Customer, License, LicenseActivation
+  - SupportTicket, TicketReply, TicketAttachment
+  - Payment, ApiKey, User
+
+- ✅ **API Controllers**: Full CRUD operations
+  - ProductController
+  - CustomerController
+  - LicenseController (with activation/deactivation)
+  - TicketController (with replies and attachments)
+  - PaymentController
+  - AdminAuthController (Sanctum authentication)
+  - AuthController (Customer JWT authentication)
+  - WebhookController
+
+- ✅ **API Routes**: Complete route structure
+  - Admin routes (`/api/v1/admin/*`) - Protected with Sanctum
+  - Public API routes (`/api/v1/*`) - Protected with API keys
+  - Customer auth routes (`/api/v1/auth/*`)
+  - Webhook routes (`/api/v1/webhooks/*`)
+
+- ✅ **Authentication & Security**
+  - Laravel Sanctum for admin dashboard authentication
+  - API key authentication for external integrations
+  - Rate limiting middleware
+  - Input sanitization middleware
+  - Secure file upload middleware
+  - CORS configuration for localhost development
+
+- ✅ **Services & Business Logic**
+  - LicenseKeyGenerator (product-type specific key generation)
+  - LicenseActivationService (activation/deactivation logic)
+  - CacheService (caching for performance)
+
+- ✅ **Validation & Resources**
+  - Form Request validation classes
+  - API Resource classes for standardized responses
+
+- ✅ **Performance & Security**
+  - Database indexes on frequently queried columns
+  - Query optimization with eager loading
+  - Caching for license validation
+  - Pagination limits
+  - File upload security (MIME validation, size limits)
+
+- ✅ **Database Seeders**
+  - AdminUserSeeder (creates default admin user)
+  - DatabaseSeeder (creates demo data)
+
+### Admin Dashboard (Vue.js)
+
+#### Core Features
+- ✅ **Authentication System**
+  - Login page with email/password
+  - Token-based authentication with Sanctum
+  - Protected routes with auth guards
+  - Auto-logout on token expiration
+
+- ✅ **Dashboard Layout**
+  - Sidebar navigation
+  - Header with user info
+  - Responsive design
+
+- ✅ **Dashboard Page**
+  - Statistics cards (Total Licenses, Active Licenses, Open Tickets, Revenue)
+  - Real-time data from API
+
+- ✅ **Product Management**
+  - List view with search
+  - Create product modal form
+  - Delete functionality
+  - Product types: WordPress Plugin, Web App, Desktop App, Mobile App, API Service, SaaS Product
+
+- ✅ **License Management**
+  - List view with search and status filtering
+  - Detail view with license information
+  - Activation history display
+
+- ✅ **Ticket Management**
+  - List view with search, status, and priority filters
+  - Detail view with ticket information
+  - Replies display
+
+- ✅ **Customer Management**
+  - List view with search
+  - Detail view with customer information
+  - Associated licenses display
+
+- ✅ **API Integration**
+  - Axios service with interceptors
+  - Automatic token injection
+  - Error handling
+  - Admin API base URL configuration
+
+## 🚧 What's Next
+
+### High Priority
+
+#### 1. Nuxt.js Public Site (site-front/)
+- [ ] **Project Setup**
+  - [ ] Initialize Nuxt.js 3 project
+  - [ ] Configure Tailwind CSS
+  - [ ] Set up routing
+  - [ ] Configure API client
+
+- [ ] **Customer Authentication**
+  - [ ] Registration page
+  - [ ] Login page
+  - [ ] Password reset flow
+  - [ ] JWT token management
+  - [ ] Protected routes
+
+- [ ] **Customer Portal Pages**
+  - [ ] Dashboard/Home page
+  - [ ] My Licenses page
+  - [ ] License detail page
+  - [ ] Support Tickets list
+  - [ ] Create ticket page
+  - [ ] Ticket detail page (with replies)
+  - [ ] Profile/Settings page
+
+- [ ] **Product Pages**
+  - [ ] Product listing page
+  - [ ] Product detail page
+  - [ ] Purchase/Checkout flow
+  - [ ] Payment integration
+
+#### 2. Backend Enhancements
+- [ ] **Payment Integration**
+  - [ ] Stripe integration
+  - [ ] PayPal integration
+  - [ ] Payment webhook handlers
+  - [ ] Subscription management
+
+- [ ] **Email Notifications**
+  - [ ] License activation emails
+  - [ ] Ticket creation/update emails
+  - [ ] Password reset emails
+  - [ ] Payment confirmation emails
+
+- [ ] **Advanced Features**
+  - [ ] License transfer functionality
+  - [ ] License renewal system
+  - [ ] Usage analytics and reporting
+  - [ ] Export functionality (CSV, PDF)
+
+#### 3. Admin Dashboard Enhancements
+- [ ] **License Management**
+  - [ ] Create license form
+  - [ ] Edit license functionality
+  - [ ] Bulk operations
+  - [ ] License transfer UI
+
+- [ ] **Ticket Management**
+  - [ ] Reply to tickets
+  - [ ] Change ticket status/priority
+  - [ ] Assign tickets to admins
+  - [ ] File attachment support
+
+- [ ] **Customer Management**
+  - [ ] Create customer form
+  - [ ] Edit customer functionality
+  - [ ] Customer activity log
+
+- [ ] **Analytics & Reports**
+  - [ ] Revenue charts
+  - [ ] License statistics
+  - [ ] Ticket metrics
+  - [ ] Export reports
+
+### Medium Priority
+
+#### 4. Additional Features
+- [ ] **White-label System**
+  - [ ] Custom branding per product
+  - [ ] Custom domains
+  - [ ] Custom email templates
+
+- [ ] **API Enhancements**
+  - [ ] GraphQL endpoint (optional)
+  - [ ] Webhook system for external integrations
+  - [ ] API documentation (Swagger/OpenAPI)
+
+- [ ] **Testing**
+  - [ ] Unit tests for backend
+  - [ ] Integration tests for API
+  - [ ] E2E tests for dashboard
+  - [ ] E2E tests for public site
+
+- [ ] **Documentation**
+  - [ ] API documentation
+  - [ ] Admin user guide
+  - [ ] Customer portal guide
+  - [ ] Developer documentation
+
+### Low Priority
+
+#### 5. Advanced Features
+- [ ] **Multi-language Support**
+  - [ ] i18n for admin dashboard
+  - [ ] i18n for public site
+  - [ ] Language switcher
+
+- [ ] **Advanced Analytics**
+  - [ ] Real-time dashboards
+  - [ ] Custom report builder
+  - [ ] Data visualization
+
+- [ ] **Mobile Apps**
+  - [ ] React Native admin app
+  - [ ] React Native customer app
+
+## 🚀 Setup Instructions
+
+### Prerequisites
+- PHP 8.2+
+- Composer
+- Node.js 18+
+- MySQL 8.0+
+- WAMP/XAMPP (for Windows) or LAMP (for Linux)
+
+### Backend Setup
+
+1. **Navigate to backend directory**
+   ```bash
+   cd backend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   composer install
+   ```
+
+3. **Configure environment**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+4. **Update `.env` file**
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=ulsp
+   DB_USERNAME=root
+   DB_PASSWORD=
+   ```
+
+5. **Run migrations**
+   ```bash
+   php artisan migrate
+   ```
+
+6. **Seed database**
+   ```bash
+   php artisan db:seed --class=AdminUserSeeder
+   ```
+
+7. **Start server**
+   ```bash
+   php artisan serve
+   ```
+
+   Backend will be available at `http://127.0.0.1:8000`
+
+### Admin Dashboard Setup
+
+1. **Navigate to admin-dashboard directory**
+   ```bash
+   cd admin-dashboard
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+   Dashboard will be available at `http://localhost:5173`
+
+4. **Login credentials**
+   - Email: `admin@ulsp.local`
+   - Password: `admin123`
+
+### Public Site Setup (TODO)
+
+1. **Navigate to site-front directory**
+   ```bash
+   cd site-front
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+## 📚 API Documentation
+
+### Base URL
+```
+http://127.0.0.1:8000/api/v1
+```
+
+### Authentication
+
+#### Admin Authentication (Sanctum)
+```http
+POST /admin/login
+Content-Type: application/json
+
+{
+  "email": "admin@ulsp.local",
+  "password": "admin123"
+}
+```
+
+Response:
+```json
+{
+  "user": {
+    "id": 1,
+    "name": "Administrator",
+    "email": "admin@ulsp.local"
+  },
+  "token": "1|...",
+  "token_type": "Bearer"
+}
+```
+
+Use token in subsequent requests:
+```http
+Authorization: Bearer {token}
+```
+
+#### API Key Authentication
+```http
+X-API-Key: {your_api_key}
+```
+or
+```http
+Authorization: Bearer {your_api_key}
+```
+
+### Key Endpoints
+
+#### Products
+- `GET /admin/products` - List products (admin)
+- `POST /admin/products` - Create product (admin)
+- `GET /admin/products/{id}` - Get product (admin)
+- `PUT /admin/products/{id}` - Update product (admin)
+- `DELETE /admin/products/{id}` - Delete product (admin)
+
+#### Licenses
+- `GET /admin/licenses` - List licenses (admin)
+- `POST /admin/licenses` - Create license (admin)
+- `GET /admin/licenses/{id}` - Get license (admin)
+- `POST /admin/licenses/activate` - Activate license
+- `POST /admin/licenses/deactivate` - Deactivate license
+- `GET /admin/licenses/validate?license_key={key}` - Validate license
+
+#### Customers
+- `GET /admin/customers` - List customers (admin)
+- `POST /admin/customers` - Create customer (admin)
+- `GET /admin/customers/{id}` - Get customer (admin)
+
+#### Tickets
+- `GET /admin/tickets` - List tickets (admin)
+- `POST /admin/tickets` - Create ticket
+- `GET /admin/tickets/{id}` - Get ticket (admin)
+- `POST /admin/tickets/{id}/replies` - Add reply (admin)
+
+## 🧪 Development Guidelines
+
+### Code Standards
+- Follow WordPress PHP Coding Standards (WPCS) for backend
+- Use Arial or default browser fonts (no Google Fonts)
+- Commit after each feature completion
+
+### Git Workflow
+- Main branch: `master`
+- Commit messages should be descriptive
+- Commit after completing each feature
+
+### Database
+- Always create migrations for schema changes
+- Use factories for test data
+- Use seeders for initial data
+
+### API Versioning
+- Current version: `v1`
+- All routes under `/api/v1/`
+- Admin routes under `/api/v1/admin/`
+
+## 📝 Notes
+
+- Default admin user is created via `AdminUserSeeder`
+- CORS is configured for localhost development
+- Sanctum is used for SPA authentication
+- API keys are used for external integrations
+- File uploads are limited to 10MB with MIME type validation
+
+## 🔗 Related Documentation
+
+- [CORS Configuration](./CORS_CONFIGURATION.md)
+- [Wireframe Documentation](./UNIVERSAL_LICENSE_SUPPORT_PLATFORM_WIREFRAME.md)
+
+## 📞 Support
+
+For issues or questions, please refer to the wireframe documentation or create an issue in the repository.
+
+---
+
+**Last Updated**: December 2025
+**Version**: 1.0.0
+
