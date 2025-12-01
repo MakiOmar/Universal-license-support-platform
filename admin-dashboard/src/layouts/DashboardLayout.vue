@@ -49,14 +49,6 @@ import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-const authStore = useAuthStore()
-
-onMounted(() => {
-  if (authStore.isAuthenticated && !authStore.user) {
-    authStore.fetchUser()
-  }
-})
-
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -72,6 +64,12 @@ const navigation = [
 const currentPageTitle = computed(() => {
   const item = navigation.find(n => n.name === route.name)
   return item?.label || 'Dashboard'
+})
+
+onMounted(() => {
+  if (authStore.isAuthenticated && !authStore.user) {
+    authStore.fetchUser()
+  }
 })
 
 function handleLogout() {
