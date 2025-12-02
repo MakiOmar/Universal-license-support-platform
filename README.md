@@ -370,7 +370,7 @@ ulsp/
   - [x] License transfer UI
   - [ ] Bulk operations
   - [ ] License renewal system
-  - [ ] License expiration notifications
+  - [x] License expiration notifications (scheduled daily checks at 30, 7, and 1 days before expiration)
 
 - [ ] **Ticket Management**
   - [x] Reply to tickets
