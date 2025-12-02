@@ -14,7 +14,220 @@
           <option value="pending">Pending</option>
           <option value="expired">Expired</option>
           <option value="suspended">Suspended</option>
+          <option value="cancelled">Cancelled</option>
         </select>
+      </div>
+      <button
+        @click="openCreateModal"
+        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+      >
+        Create License
+      </button>
+    </div>
+
+    <!-- Create / Edit License Modal -->
+    <div
+      v-if="showFormModal"
+      class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+      @click.self="closeFormModal"
+    >
+      <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">
+            {{ editingLicense ? 'Edit License' : 'Create License' }}
+          </h3>
+
+          <form @submit.prevent="handleFormSubmit" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Product *</label>
+                <select
+                  v-model.number="form.product_id"
+                  required
+                  class="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">Select product</option>
+                  <option
+                    v-for="product in products"
+                    :key="product.id"
+                    :value="product.id"
+                  >
+                    {{ product.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+                <select
+                  v-model.number="form.customer_id"
+                  required
+                  class="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">Select customer</option>
+                  <option
+                    v-for="customer in customers"
+                    :key="customer.id"
+                    :value="customer.id"
+                  >
+                    {{ customer.email }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">License Type *</label>
+                <select v-model="form.license_type" required class="w-full px-3 py-2 border rounded-md">
+                  <option value="">Select type</option>
+                  <option value="domain">Domain-based</option>
+                  <option value="machine_id">Machine ID</option>
+                  <option value="device_id">Device ID</option>
+                  <option value="api_key">API Key</option>
+                  <option value="subscription">Subscription</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Max Activations</label>
+                <input
+                  v-model.number="form.max_activations"
+                  type="number"
+                  min="1"
+                  max="100"
+                  class="w-full px-3 py-2 border rounded-md"
+                  placeholder="1"
+                />
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">License Key</label>
+                <input
+                  v-model="form.license_key"
+                  type="text"
+                  class="w-full px-3 py-2 border rounded-md font-mono"
+                  placeholder="Leave empty to auto-generate"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select v-model="form.status" class="w-full px-3 py-2 border rounded-md">
+                  <option value="pending">Pending</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Purchased At</label>
+                <input
+                  v-model="form.purchased_at"
+                  type="datetime-local"
+                  class="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Expires At</label>
+                <input
+                  v-model="form.expires_at"
+                  type="datetime-local"
+                  class="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Support Expires At</label>
+                <input
+                  v-model="form.support_expires_at"
+                  type="datetime-local"
+                  class="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+            </div>
+
+            <div v-if="formError" class="text-sm text-red-600">
+              {{ formError }}
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                @click="closeFormModal"
+                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="formSaving"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <span v-if="formSaving">{{ editingLicense ? 'Saving...' : 'Creating...' }}</span>
+                <span v-else>{{ editingLicense ? 'Save Changes' : 'Create License' }}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transfer License Modal -->
+    <div
+      v-if="showTransferModal && transferLicense"
+      class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+      @click.self="closeTransferModal"
+    >
+      <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Transfer License</h3>
+          <p class="text-sm text-gray-600 mb-3">
+            License: <span class="font-mono">{{ transferLicense.license_key }}</span>
+          </p>
+          <form @submit.prevent="handleTransferSubmit" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">New Customer *</label>
+              <select
+                v-model.number="transferCustomerId"
+                required
+                class="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="">Select customer</option>
+                <option
+                  v-for="customer in customers"
+                  :key="customer.id"
+                  :value="customer.id"
+                >
+                  {{ customer.email }}
+                </option>
+              </select>
+            </div>
+
+            <div v-if="transferError" class="text-sm text-red-600">
+              {{ transferError }}
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                @click="closeTransferModal"
+                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="transferSaving"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <span v-if="transferSaving">Transferring...</span>
+                <span v-else>Transfer License</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -45,8 +258,22 @@
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ formatDate(license.expires_at) }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
               <router-link :to="`/licenses/${license.id}`" class="text-indigo-600 hover:text-indigo-900">View</router-link>
+              <button
+                type="button"
+                @click="openEditModal(license)"
+                class="text-gray-700 hover:text-gray-900"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                @click="openTransferModal(license)"
+                class="text-blue-600 hover:text-blue-900"
+              >
+                Transfer
+              </button>
             </td>
           </tr>
         </tbody>
@@ -63,6 +290,32 @@ const licenses = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
 const statusFilter = ref('')
+
+const products = ref<any[]>([])
+const customers = ref<any[]>([])
+
+const showFormModal = ref(false)
+const formSaving = ref(false)
+const formError = ref('')
+const editingLicense = ref<any | null>(null)
+
+const form = ref({
+  product_id: '' as number | '',
+  customer_id: '' as number | '',
+  license_type: '',
+  max_activations: null as number | null,
+  license_key: '',
+  status: 'pending',
+  purchased_at: '',
+  expires_at: '',
+  support_expires_at: ''
+})
+
+const showTransferModal = ref(false)
+const transferSaving = ref(false)
+const transferError = ref('')
+const transferLicense = ref<any | null>(null)
+const transferCustomerId = ref<number | ''>('')
 
 const filteredLicenses = computed(() => {
   let filtered = licenses.value
@@ -110,8 +363,172 @@ async function fetchLicenses() {
   }
 }
 
+async function fetchMetadata() {
+  try {
+    const [productsRes, customersRes] = await Promise.all([
+      api.get(`${ADMIN_API_BASE_URL}/products`, { params: { per_page: 100 } }),
+      api.get(`${ADMIN_API_BASE_URL}/customers`, { params: { per_page: 100 } })
+    ])
+
+    products.value = productsRes.data.data || productsRes.data
+    customers.value = customersRes.data.data || customersRes.data
+  } catch (error) {
+    console.error('Failed to fetch license metadata:', error)
+  }
+}
+
+function resetForm() {
+  form.value = {
+    product_id: '' as number | '',
+    customer_id: '' as number | '',
+    license_type: '',
+    max_activations: null,
+    license_key: '',
+    status: 'pending',
+    purchased_at: '',
+    expires_at: '',
+    support_expires_at: ''
+  }
+  formError.value = ''
+  editingLicense.value = null
+}
+
+function openCreateModal() {
+  resetForm()
+  showFormModal.value = true
+}
+
+function openEditModal(license: any) {
+  editingLicense.value = license
+  form.value = {
+    product_id: license.product_id,
+    customer_id: license.customer_id,
+    license_type: license.license_type || '',
+    max_activations: license.max_activations ?? null,
+    license_key: license.license_key || '',
+    status: license.status || 'pending',
+    purchased_at: license.purchased_at ? String(license.purchased_at).slice(0, 16) : '',
+    expires_at: license.expires_at ? String(license.expires_at).slice(0, 16) : '',
+    support_expires_at: license.support_expires_at ? String(license.support_expires_at).slice(0, 16) : ''
+  }
+  formError.value = ''
+  showFormModal.value = true
+}
+
+function closeFormModal() {
+  if (formSaving.value) {
+    return
+  }
+  showFormModal.value = false
+}
+
+async function handleFormSubmit() {
+  formSaving.value = true
+  formError.value = ''
+
+  const payload: any = {
+    product_id: form.value.product_id,
+    customer_id: form.value.customer_id,
+    license_type: form.value.license_type,
+    status: form.value.status
+  }
+
+  if (form.value.max_activations) {
+    payload.max_activations = form.value.max_activations
+  }
+  if (form.value.license_key) {
+    payload.license_key = form.value.license_key
+  }
+  if (form.value.purchased_at) {
+    payload.purchased_at = form.value.purchased_at
+  }
+  if (form.value.expires_at) {
+    payload.expires_at = form.value.expires_at
+  }
+  if (form.value.support_expires_at) {
+    payload.support_expires_at = form.value.support_expires_at
+  }
+
+  try {
+    if (editingLicense.value) {
+      const response = await api.put(
+        `${ADMIN_API_BASE_URL}/licenses/${editingLicense.value.id}`,
+        payload
+      )
+      const updated = response.data.data || response.data
+      licenses.value = licenses.value.map((l: any) => (l.id === updated.id ? updated : l))
+    } else {
+      const response = await api.post(`${ADMIN_API_BASE_URL}/licenses`, payload)
+      const created = response.data.data || response.data
+      licenses.value.unshift(created)
+    }
+
+    showFormModal.value = false
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      formError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      formError.value = Object.values(errors).flat().join(', ')
+    } else {
+      formError.value = 'Failed to save license. Please try again.'
+    }
+  } finally {
+    formSaving.value = false
+  }
+}
+
+function openTransferModal(license: any) {
+  transferLicense.value = license
+  transferCustomerId.value = '' as number | ''
+  transferError.value = ''
+  showTransferModal.value = true
+}
+
+function closeTransferModal() {
+  if (transferSaving.value) {
+    return
+  }
+  showTransferModal.value = false
+}
+
+async function handleTransferSubmit() {
+  if (!transferLicense.value || !transferCustomerId.value) {
+    return
+  }
+
+  transferSaving.value = true
+  transferError.value = ''
+
+  try {
+    const response = await api.post(
+      `${ADMIN_API_BASE_URL}/licenses/${transferLicense.value.id}/transfer`,
+      { new_customer_id: transferCustomerId.value }
+    )
+
+    const updated = response.data.license?.data || response.data.license || null
+    if (updated) {
+      licenses.value = licenses.value.map((l: any) => (l.id === updated.id ? updated : l))
+    }
+
+    showTransferModal.value = false
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      transferError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      transferError.value = Object.values(errors).flat().join(', ')
+    } else {
+      transferError.value = 'Failed to transfer license. Please try again.'
+    }
+  } finally {
+    transferSaving.value = false
+  }
+}
+
 onMounted(() => {
   fetchLicenses()
+  fetchMetadata()
 })
 </script>
 

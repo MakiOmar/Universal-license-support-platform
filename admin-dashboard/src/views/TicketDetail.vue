@@ -37,17 +37,92 @@
         </div>
       </div>
 
-      <div class="bg-white shadow rounded-lg p-6">
-        <h3 class="text-lg font-semibold mb-4">Replies</h3>
-        <div v-if="replies.length === 0" class="text-gray-500 text-sm">No replies yet</div>
-        <div v-else class="space-y-4">
-          <div v-for="reply in replies" :key="reply.id" class="border-l-4 border-indigo-500 pl-4">
-            <div class="flex justify-between mb-2">
-              <span class="text-sm font-medium">{{ reply.user_type }}</span>
-              <span class="text-sm text-gray-500">{{ formatDate(reply.created_at) }}</span>
+      <div class="bg-white shadow rounded-lg p-6 space-y-6">
+        <div>
+          <h3 class="text-lg font-semibold mb-4">Replies</h3>
+          <div v-if="replies.length === 0" class="text-gray-500 text-sm">No replies yet</div>
+          <div v-else class="space-y-4">
+            <div v-for="reply in replies" :key="reply.id" class="border-l-4 border-indigo-500 pl-4">
+              <div class="flex justify-between mb-2">
+                <span class="text-sm font-medium capitalize">{{ reply.user_type }}</span>
+                <span class="text-sm text-gray-500">{{ formatDate(reply.created_at) }}</span>
+              </div>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ reply.message }}</p>
             </div>
-            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ reply.message }}</p>
           </div>
+        </div>
+
+        <div class="border-t pt-4">
+          <h4 class="text-md font-semibold mb-3">Add Reply</h4>
+          <form @submit.prevent="handleReplySubmit" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+              <textarea
+                v-model="replyForm.message"
+                rows="4"
+                required
+                class="w-full px-3 py-2 border rounded-md"
+                placeholder="Type your reply to the customer..."
+              ></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select v-model="replyForm.status" class="w-full px-3 py-2 border rounded-md">
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="waiting_customer">Waiting Customer</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select v-model="replyForm.priority" class="w-full px-3 py-2 border rounded-md">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div class="flex items-center mt-6 md:mt-0">
+                <label class="inline-flex items-center text-sm text-gray-700">
+                  <input
+                    v-model="replyForm.is_internal"
+                    type="checkbox"
+                    class="rounded border-gray-300 mr-2"
+                  />
+                  Internal note (customer cannot see)
+                </label>
+              </div>
+            </div>
+
+            <div v-if="replyError" class="text-sm text-red-600">
+              {{ replyError }}
+            </div>
+
+            <div class="flex justify-between items-center">
+              <button
+                type="button"
+                @click="handleCloseTicket"
+                :disabled="replySaving || closeSaving || ticket.status === 'closed'"
+                class="px-4 py-2 border border-gray-300 text-gray-800 rounded-md hover:bg-gray-100 disabled:opacity-50"
+              >
+                <span v-if="closeSaving">Closing...</span>
+                <span v-else>Close Ticket</span>
+              </button>
+
+              <button
+                type="submit"
+                :disabled="replySaving"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <span v-if="replySaving">Sending...</span>
+                <span v-else>Send Reply</span>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -58,11 +133,24 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const ticket = ref<any>(null)
 const replies = ref([])
 const loading = ref(false)
+const replySaving = ref(false)
+const closeSaving = ref(false)
+const replyError = ref('')
+
+const authStore = useAuthStore()
+
+const replyForm = ref({
+  message: '',
+  status: 'open',
+  priority: 'medium',
+  is_internal: false
+})
 
 function getStatusClass(status: string) {
   const classes: Record<string, string> = {
@@ -99,6 +187,84 @@ async function fetchTicket() {
     console.error('Failed to fetch ticket:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function handleReplySubmit() {
+  if (!ticket.value) {
+    return
+  }
+
+  replySaving.value = true
+  replyError.value = ''
+
+  try {
+    // Update ticket status / priority if changed
+    const updatePayload: any = {}
+    if (replyForm.value.status && replyForm.value.status !== ticket.value.status) {
+      updatePayload.status = replyForm.value.status
+    }
+    if (replyForm.value.priority && replyForm.value.priority !== ticket.value.priority) {
+      updatePayload.priority = replyForm.value.priority
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      const updateRes = await api.put(
+        `${ADMIN_API_BASE_URL}/tickets/${route.params.id}`,
+        updatePayload
+      )
+      ticket.value = updateRes.data.data || updateRes.data
+    }
+
+    const userId = authStore.user?.id || 0
+    const replyRes = await api.post(
+      `${ADMIN_API_BASE_URL}/tickets/${route.params.id}/replies`,
+      {
+        user_id: userId,
+        user_type: 'agent',
+        message: replyForm.value.message,
+        is_internal: replyForm.value.is_internal
+      }
+    )
+
+    const createdReply = replyRes.data.data || replyRes.data
+    replies.value.push(createdReply)
+
+    replyForm.value.message = ''
+    replyForm.value.is_internal = false
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      replyError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      replyError.value = Object.values(errors).flat().join(', ')
+    } else {
+      replyError.value = 'Failed to send reply. Please try again.'
+    }
+  } finally {
+    replySaving.value = false
+  }
+}
+
+async function handleCloseTicket() {
+  if (!ticket.value || ticket.value.status === 'closed') {
+    return
+  }
+
+  closeSaving.value = true
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/tickets/${route.params.id}/close`)
+    ticket.value = response.data.data || response.data
+  } catch (err: any) {
+    // Surface via reply error area
+    if (err.response?.data?.message) {
+      replyError.value = err.response.data.message
+    } else {
+      replyError.value = 'Failed to close ticket. Please try again.'
+    }
+  } finally {
+    closeSaving.value = false
   }
 }
 

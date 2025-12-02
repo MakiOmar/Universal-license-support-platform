@@ -136,8 +136,16 @@
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ formatDate(product.created_at) }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
               <button
+                type="button"
+                @click="openEditModal(product)"
+                class="text-gray-700 hover:text-gray-900"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
                 @click="handleDelete(product)"
                 class="text-red-600 hover:text-red-900"
               >
@@ -161,6 +169,7 @@ const searchQuery = ref('')
 const showCreateModal = ref(false)
 const creating = ref(false)
 const error = ref('')
+const editingProduct = ref<any | null>(null)
 
 const form = ref({
   name: '',
@@ -207,17 +216,38 @@ async function fetchProducts() {
   }
 }
 
+function openEditModal(product: any) {
+  editingProduct.value = product
+  form.value = {
+    name: product.name || '',
+    slug: product.slug || '',
+    description: product.description || '',
+    type: product.type || '',
+    version: product.version || '',
+    status: product.status || 'active'
+  }
+  error.value = ''
+  showCreateModal.value = true
+}
+
 async function handleCreate() {
   error.value = ''
   creating.value = true
   
   try {
-    const response = await api.post(`${ADMIN_API_BASE_URL}/products`, form.value)
-    
-    // Add the new product to the list
-    products.value.unshift(response.data.data || response.data)
-    
-    // Reset form and close modal
+    if (editingProduct.value) {
+      const response = await api.put(
+        `${ADMIN_API_BASE_URL}/products/${editingProduct.value.id}`,
+        form.value
+      )
+      const updated = response.data.data || response.data
+      products.value = products.value.map((p: any) => (p.id === updated.id ? updated : p))
+    } else {
+      const response = await api.post(`${ADMIN_API_BASE_URL}/products`, form.value)
+      const created = response.data.data || response.data
+      products.value.unshift(created)
+    }
+
     form.value = {
       name: '',
       slug: '',
@@ -226,6 +256,7 @@ async function handleCreate() {
       version: '',
       status: 'active'
     }
+    editingProduct.value = null
     showCreateModal.value = false
   } catch (err: any) {
     if (err.response?.data?.message) {
