@@ -71,10 +71,12 @@ ulsp/
 - **Styling**: Tailwind CSS
 - **HTTP Client**: Axios
 
-### Public Site (Planned)
-- **Framework**: Nuxt.js 3
-- **SSR**: Server-Side Rendering
-- **Styling**: Tailwind CSS
+### Customer Portal (Nuxt.js)
+- **Framework**: Nuxt.js 4.2.1
+- **State Management**: Pinia
+- **Styling**: Tailwind CSS (via @nuxt/ui)
+- **UI Components**: Nuxt UI
+- **HTTP Client**: Fetch API with composable wrapper
 
 ## ✅ What's Been Completed
 
@@ -106,6 +108,8 @@ ulsp/
   - Admin routes (`/api/v1/admin/*`) - Protected with Sanctum
   - Public API routes (`/api/v1/*`) - Protected with API keys
   - Customer auth routes (`/api/v1/auth/*`)
+  - Customer portal routes (`/api/v1/customer/*`) - Protected with customer token
+  - Public product routes (`/api/v1/products`) - No auth required
   - Webhook routes (`/api/v1/webhooks/*`)
   - Customer import/export routes (`/api/v1/admin/customers/import`, `/export`)
   - License transfer routes (`/api/v1/admin/licenses/{id}/transfer`)
@@ -124,6 +128,7 @@ ulsp/
   - CacheService (caching for performance)
   - Queue-based background processing (customer import)
   - Period-based date calculation (license expiration)
+  - Customer authentication middleware (token validation)
 
 - ✅ **Validation & Resources**
   - Form Request validation classes
@@ -227,38 +232,101 @@ ulsp/
   - Error handling
   - Admin API base URL configuration
 
+### Customer Portal (Nuxt.js)
+
+#### Core Features
+- ✅ **Authentication System**
+  - Registration page with validation
+  - Login page with token management
+  - Password reset flow
+  - Token-based authentication (stored in localStorage)
+  - Protected routes with middleware
+  - Auto-logout on token expiration
+
+- ✅ **Layout & Navigation**
+  - Responsive navigation bar
+  - Conditional menu items (based on auth status)
+  - User info display
+  - Logout functionality
+
+- ✅ **Dashboard Page**
+  - Statistics cards (licenses, tickets, expired licenses)
+  - Recent licenses list
+  - Real-time data from customer API
+
+- ✅ **Product Pages**
+  - Product listing with search functionality
+  - Product detail page
+  - Public access (no authentication required)
+  - Security: Only active products visible
+
+- ✅ **License Management**
+  - List view with card layout
+  - License detail page with full information
+  - Activation history display
+  - Status badges and visual indicators
+
+- ✅ **Support Tickets**
+  - List view with status and priority filters
+  - Create ticket modal form
+  - Ticket detail page with replies
+  - Add reply functionality
+  - Real-time updates
+
+- ✅ **Profile Settings**
+  - Edit account information
+  - Change password with confirmation
+  - Form validation
+  - Real-time auth store updates
+
+- ✅ **UI/UX Features**
+  - SweetAlert2 integration for confirmations and toasts
+  - Error page with user-friendly messages
+  - Loading states and empty states
+  - Responsive design
+  - Debounced search functionality
+
+- ✅ **Security & Performance**
+  - Token validation on all authenticated requests
+  - Automatic 401 handling and redirect
+  - Error handling with user-friendly messages
+  - Optimized API calls with proper error extraction
+  - Public route handling
+
 ## 🚧 What's Next
 
 ### High Priority
 
 #### 1. Nuxt.js Public Site (site-front/)
-- [ ] **Project Setup**
-  - [ ] Initialize Nuxt.js 3 project
-  - [ ] Configure Tailwind CSS
-  - [ ] Set up routing
-  - [ ] Configure API client
+- [x] **Project Setup**
+  - [x] Initialize Nuxt.js 3 project
+  - [x] Configure Tailwind CSS (via @nuxt/ui)
+  - [x] Set up routing
+  - [x] Configure API client with error handling
 
-- [ ] **Customer Authentication**
-  - [ ] Registration page
-  - [ ] Login page
-  - [ ] Password reset flow
-  - [ ] JWT token management
-  - [ ] Protected routes
+- [x] **Customer Authentication**
+  - [x] Registration page
+  - [x] Login page
+  - [x] Password reset flow
+  - [x] Token management (localStorage)
+  - [x] Protected routes middleware
+  - [x] Auth store (Pinia)
 
-- [ ] **Customer Portal Pages**
-  - [ ] Dashboard/Home page
-  - [ ] My Licenses page
-  - [ ] License detail page
-  - [ ] Support Tickets list
-  - [ ] Create ticket page
-  - [ ] Ticket detail page (with replies)
-  - [ ] Profile/Settings page
+- [x] **Customer Portal Pages**
+  - [x] Dashboard/Home page with statistics
+  - [x] My Licenses page (list view)
+  - [x] License detail page with activation history
+  - [x] Support Tickets list with filters
+  - [x] Create ticket functionality
+  - [x] Ticket detail page (with replies)
+  - [x] Profile/Settings page with password change
 
-- [ ] **Product Pages**
-  - [ ] Product listing page
-  - [ ] Product detail page
-  - [ ] Purchase/Checkout flow
-  - [ ] Payment integration
+- [x] **Product Pages**
+  - [x] Product listing page with search
+  - [x] Product detail page
+  - [x] Public access (no auth required)
+  - [ ] Purchase/Checkout flow (basic structure ready)
+  - [ ] Payment integration (pending)
 
 #### 2. Backend Enhancements
 - [ ] **Payment Integration**
