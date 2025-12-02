@@ -27,8 +27,8 @@ class SupportTicketResource extends JsonResource
             'category' => $this->category,
             'assigned_to' => $this->assigned_to,
             'replies' => TicketReplyResource::collection($this->whenLoaded('replies')),
-            'created_at' => $this->created_at->toIso8601String(),
-            'updated_at' => $this->updated_at->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
             'resolved_at' => $this->resolved_at?->toIso8601String(),
         ];
     }

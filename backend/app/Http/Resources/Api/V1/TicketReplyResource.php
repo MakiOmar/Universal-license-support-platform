@@ -20,7 +20,7 @@ class TicketReplyResource extends JsonResource
             'user_type' => $this->user_type,
             'message' => $this->message,
             'is_internal' => $this->is_internal,
-            'created_at' => $this->created_at->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
         ];
     }
 }
