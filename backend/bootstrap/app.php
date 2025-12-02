@@ -21,6 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'secure.upload' => \App\Http\Middleware\SecureFileUpload::class,
         ]);
     })
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        // Check for expiring licenses daily at 9 AM
+        $schedule->command('licenses:check-expiring --days=30')->dailyAt('09:00');
+        $schedule->command('licenses:check-expiring --days=7')->dailyAt('09:00');
+        $schedule->command('licenses:check-expiring --days=1')->dailyAt('09:00');
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
