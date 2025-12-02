@@ -47,7 +47,7 @@ class TicketController extends Controller
 
     public function show(SupportTicket $ticket)
     {
-        $ticket->load(['customer', 'license', 'product', 'replies', 'assignedAdmin']);
+        $ticket->load(['customer', 'license', 'product', 'replies.attachments', 'assignedAdmin']);
 
         return new SupportTicketResource($ticket);
     }
