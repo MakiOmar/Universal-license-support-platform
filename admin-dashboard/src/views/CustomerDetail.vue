@@ -64,6 +64,48 @@
           </table>
         </div>
       </div>
+
+      <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold mb-4">Activity Log</h3>
+        <div v-if="activitiesLoading" class="text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+        </div>
+        <div v-else-if="activities.length === 0" class="text-center py-8 text-gray-500">
+          No activity recorded yet.
+        </div>
+        <div v-else class="space-y-4">
+          <div
+            v-for="activity in activities"
+            :key="activity.id"
+            class="border-l-4 border-indigo-500 pl-4 py-2"
+          >
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <p class="text-sm font-medium text-gray-900">{{ activity.description }}</p>
+                <p class="text-xs text-gray-500 mt-1">
+                  <span class="inline-block px-2 py-0.5 bg-gray-100 rounded">{{ activity.activity_type }}</span>
+                  <span class="ml-2">{{ formatDate(activity.created_at) }}</span>
+                </p>
+                <div v-if="activity.metadata && Object.keys(activity.metadata).length > 0" class="mt-2 text-xs text-gray-600">
+                  <details class="cursor-pointer">
+                    <summary class="text-indigo-600 hover:text-indigo-800">View details</summary>
+                    <pre class="mt-2 p-2 bg-gray-50 rounded text-xs overflow-auto">{{ JSON.stringify(activity.metadata, null, 2) }}</pre>
+                  </details>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-if="activities.length > 0 && hasMoreActivities" class="mt-4 text-center">
+          <button
+            @click="loadMoreActivities"
+            :disabled="activitiesLoading"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Load More
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
