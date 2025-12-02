@@ -175,6 +175,9 @@ class TicketController extends Controller
             'is_internal' => $data['is_internal'] ?? false,
         ]));
 
+        // Load attachments relationship
+        $reply->load('attachments');
+
         // Refresh ticket to get latest data
         $ticket->refresh();
         $ticket->load(['customer', 'replies']);

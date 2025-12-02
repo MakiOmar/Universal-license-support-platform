@@ -20,6 +20,18 @@ class TicketReplyResource extends JsonResource
             'user_type' => $this->user_type,
             'message' => $this->message,
             'is_internal' => $this->is_internal,
+            'attachments' => $this->when($this->relationLoaded('attachments'), function () {
+                return $this->attachments->map(function ($attachment) {
+                    return [
+                        'id' => $attachment->id,
+                        'filename' => $attachment->filename,
+                        'file_size' => $attachment->file_size,
+                        'mime_type' => $attachment->mime_type,
+                        'url' => asset('storage/' . $attachment->file_path),
+                        'created_at' => $attachment->created_at?->toIso8601String(),
+                    ];
+                });
+            }),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

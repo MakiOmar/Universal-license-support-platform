@@ -65,6 +65,24 @@
                 <span class="text-sm text-gray-500">{{ formatDate(reply.created_at) }}</span>
               </div>
               <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ reply.message }}</p>
+              <div v-if="reply.attachments && reply.attachments.length > 0" class="mt-3 space-y-2">
+                <div class="text-xs font-medium text-gray-600">Attachments:</div>
+                <div class="flex flex-wrap gap-2">
+                  <a
+                    v-for="attachment in reply.attachments"
+                    :key="attachment.id"
+                    :href="attachment.url"
+                    target="_blank"
+                    class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-700"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                    {{ attachment.filename }}
+                    <span class="text-gray-500">({{ formatFileSize(attachment.file_size) }})</span>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -81,6 +99,37 @@
                 class="w-full px-3 py-2 border rounded-md"
                 placeholder="Type your reply to the customer..."
               ></textarea>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Attachments</label>
+              <input
+                type="file"
+                ref="fileInput"
+                @change="handleFileSelect"
+                multiple
+                accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.log"
+                class="w-full px-3 py-2 border rounded-md text-sm"
+              />
+              <div v-if="selectedFiles.length > 0" class="mt-2 space-y-1">
+                <div
+                  v-for="(file, index) in selectedFiles"
+                  :key="index"
+                  class="flex items-center justify-between text-xs bg-gray-50 px-2 py-1 rounded"
+                >
+                  <span class="text-gray-700">{{ file.name }}</span>
+                  <button
+                    type="button"
+                    @click="removeFile(index)"
+                    class="text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                Supported formats: JPG, PNG, GIF, PDF, DOC, DOCX, TXT, LOG (Max 10MB per file)
+              </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -132,10 +181,10 @@
 
               <button
                 type="submit"
-                :disabled="replySaving"
+                :disabled="replySaving || uploadingFiles"
                 class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
               >
-                <span v-if="replySaving">Sending...</span>
+                <span v-if="replySaving || uploadingFiles">Sending...</span>
                 <span v-else>Send Reply</span>
               </button>
             </div>
@@ -163,6 +212,9 @@ const replyError = ref('')
 const admins = ref<any[]>([])
 const assignedAdminId = ref<number | null>(null)
 const assigning = ref(false)
+const selectedFiles = ref<File[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploadingFiles = ref(false)
 
 const authStore = useAuthStore()
 const { toastSuccess, toastError, confirmAction } = useAlerts()
@@ -197,6 +249,27 @@ function getPriorityClass(priority: string) {
 function formatDate(date: string | null) {
   if (!date) return 'N/A'
   return new Date(date).toLocaleString()
+}
+
+function formatFileSize(bytes: number | null) {
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function handleFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files) {
+    selectedFiles.value = Array.from(target.files)
+  }
+}
+
+function removeFile(index: number) {
+  selectedFiles.value.splice(index, 1)
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
 }
 
 async function fetchTicket() {
