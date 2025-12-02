@@ -148,6 +148,7 @@ definePageMeta({
 
 const authStore = useAuthStore()
 const api = useApi()
+const { CUSTOMER_API_BASE_URL } = useApi()
 
 const loading = ref(true)
 const stats = ref({
@@ -165,12 +166,12 @@ onMounted(async () => {
 async function fetchDashboardData() {
   loading.value = true
   try {
-    // Fetch customer's licenses
-    const licensesRes = await api.get<{ data: any[] }>(`/customers/${authStore.customer?.id}/licenses`)
+    // Fetch customer's licenses using customer API
+    const licensesRes = await api.get<{ data: any[] }>(`${CUSTOMER_API_BASE_URL}/licenses`)
     const licenses = licensesRes.data || []
 
-    // Fetch customer's tickets
-    const ticketsRes = await api.get<{ data: any[] }>(`/customers/${authStore.customer?.id}/tickets`)
+    // Fetch customer's tickets using customer API
+    const ticketsRes = await api.get<{ data: any[] }>(`${CUSTOMER_API_BASE_URL}/tickets`)
     const tickets = ticketsRes.data || []
 
     // Calculate statistics
