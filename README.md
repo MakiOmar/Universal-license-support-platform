@@ -411,7 +411,7 @@ ulsp/
   - [x] Create customer form
   - [x] Edit customer functionality
   - [x] Import/Export functionality
-  - [ ] Customer activity log
+  - [x] Customer activity log (backend and UI complete)
   - [ ] Bulk customer operations
 
 - [x] **API Key Management**
