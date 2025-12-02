@@ -59,6 +59,7 @@ Route::prefix('v1')->group(function () {
         Route::get('tickets/{ticket}', [TicketController::class, 'show']);
         Route::put('tickets/{ticket}', [TicketController::class, 'update']);
         Route::post('tickets/{ticket}/close', [TicketController::class, 'close']);
+        Route::post('tickets/{ticket}/assign', [TicketController::class, 'assign']);
         Route::get('tickets/{ticket}/replies', [TicketController::class, 'listReplies']);
         Route::post('tickets/{ticket}/replies', [TicketController::class, 'addReply']);
         Route::post('tickets/{ticket}/attachments', [TicketController::class, 'uploadAttachment'])->middleware('secure.upload');
@@ -125,6 +126,7 @@ Route::prefix('v1')->group(function () {
         Route::get('tickets/{ticket}', [TicketController::class, 'show']);
         Route::put('tickets/{ticket}', [TicketController::class, 'update']);
         Route::post('tickets/{ticket}/close', [TicketController::class, 'close']);
+        Route::post('tickets/{ticket}/assign', [TicketController::class, 'assign']);
         Route::get('tickets/{ticket}/replies', [TicketController::class, 'listReplies']);
         Route::post('tickets/{ticket}/replies', [TicketController::class, 'addReply']);
         Route::post('tickets/{ticket}/attachments', [TicketController::class, 'uploadAttachment'])->middleware('secure.upload');
