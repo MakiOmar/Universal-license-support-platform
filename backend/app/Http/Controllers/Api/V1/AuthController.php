@@ -95,12 +95,17 @@ class AuthController extends Controller
             now()->addHour()
         );
 
-        // In production, send email with reset link
-        // Mail::to($customer->email)->send(new ResetPasswordMail($resetToken));
+        // Generate reset URL
+        $resetUrl = config('app.frontend_url', 'http://localhost:3000') . '/reset-password?token=' . $resetToken . '&email=' . urlencode($customer->email);
+
+        // Send password reset email via queue for better performance
+        \App\Jobs\SendEmailJob::dispatch(
+            new \App\Mail\PasswordResetMail($customer, $resetToken, $resetUrl),
+            $customer->email
+        );
 
         return response()->json([
             'message' => 'If the email exists, a password reset link has been sent.',
-            'reset_token' => $resetToken, // Remove in production
         ]);
     }
 

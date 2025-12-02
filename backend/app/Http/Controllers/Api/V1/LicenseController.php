@@ -155,6 +155,15 @@ class LicenseController extends Controller
             $request
         );
 
+        // Send email notification if activation was successful
+        if ($result['success'] && $license->customer && $license->customer->email) {
+            $license->load(['customer', 'product']);
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\LicenseActivatedMail($license),
+                $license->customer->email
+            );
+        }
+
         $statusCode = $result['success'] ? 201 : 400;
 
         return response()->json($result, $statusCode);

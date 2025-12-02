@@ -85,6 +85,14 @@ class TicketController extends Controller
 
         $ticket->load(['customer', 'license', 'product']);
 
+        // Send email notification to customer via queue
+        if ($ticket->customer && $ticket->customer->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\TicketCreatedMail($ticket),
+                $ticket->customer->email
+            );
+        }
+
         return new SupportTicketResource($ticket);
     }
 
@@ -111,6 +119,14 @@ class TicketController extends Controller
         $ticket->resolved_at = now();
         $ticket->save();
         $ticket->load(['customer', 'license', 'product', 'replies']);
+
+        // Send email notification to customer via queue
+        if ($ticket->customer && $ticket->customer->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\TicketUpdatedMail($ticket, 'closed'),
+                $ticket->customer->email
+            );
+        }
 
         return new SupportTicketResource($ticket);
     }
@@ -149,6 +165,19 @@ class TicketController extends Controller
             'ticket_id' => $ticket->id,
             'is_internal' => $data['is_internal'] ?? false,
         ]));
+
+        // Refresh ticket to get latest data
+        $ticket->refresh();
+        $ticket->load(['customer', 'replies']);
+
+        // Send email notification to customer if reply is not internal
+        if (!$reply->is_internal && $ticket->customer && $ticket->customer->email) {
+            $updateType = $data['user_type'] === 'customer' ? 'reply' : 'updated';
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\TicketUpdatedMail($ticket, $updateType),
+                $ticket->customer->email
+            );
+        }
 
         return new TicketReplyResource($reply);
     }
