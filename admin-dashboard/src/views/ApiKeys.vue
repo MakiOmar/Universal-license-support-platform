@@ -50,7 +50,8 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="apiKey in apiKeys" :key="apiKey?.id" v-if="apiKey">
+          <template v-for="apiKey in apiKeys" :key="apiKey?.id">
+            <tr v-if="apiKey">
             <td class="px-6 py-4 whitespace-nowrap">
               <code class="text-sm text-gray-900 font-mono">{{ truncateKey(apiKey.api_key) }}</code>
             </td>
@@ -101,6 +102,7 @@
               </button>
             </td>
           </tr>
+          </template>
         </tbody>
       </table>
 
