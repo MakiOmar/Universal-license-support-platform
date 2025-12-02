@@ -1,13 +1,10 @@
 import { defineVitestConfig } from '@nuxt/test-utils/config'
 import { resolve } from 'path'
-import tsconfigPaths from 'vite-tsconfig-paths'
+import { fileURLToPath } from 'url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineVitestConfig({
-  plugins: [
-    tsconfigPaths({
-      root: resolve(__dirname, '.'),
-    }),
-  ],
   resolve: {
     alias: {
       '~': resolve(__dirname, '.'),
@@ -15,4 +12,3 @@ export default defineVitestConfig({
     },
   },
 })
-
