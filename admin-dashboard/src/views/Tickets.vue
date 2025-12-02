@@ -12,6 +12,7 @@
           <option value="">All Status</option>
           <option value="open">Open</option>
           <option value="in_progress">In Progress</option>
+          <option value="waiting_customer">Waiting Customer</option>
           <option value="resolved">Resolved</option>
           <option value="closed">Closed</option>
         </select>
@@ -22,6 +23,147 @@
           <option value="high">High</option>
           <option value="urgent">Urgent</option>
         </select>
+      </div>
+      <button
+        @click="openCreateModal"
+        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+      >
+        New Ticket
+      </button>
+    </div>
+
+    <!-- Create Ticket Modal -->
+    <div
+      v-if="showCreateModal"
+      class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+      @click.self="closeCreateModal"
+    >
+      <div class="relative top-10 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Create New Ticket</h3>
+          <form @submit.prevent="handleCreate" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+                <select
+                  v-model.number="form.customer_id"
+                  required
+                  class="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">Select customer</option>
+                  <option
+                    v-for="customer in customers"
+                    :key="customer.id"
+                    :value="customer.id"
+                  >
+                    {{ customer.email }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Product</label>
+                <select
+                  v-model.number="form.product_id"
+                  class="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">None</option>
+                  <option
+                    v-for="product in products"
+                    :key="product.id"
+                    :value="product.id"
+                  >
+                    {{ product.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">License</label>
+                <select
+                  v-model.number="form.license_id"
+                  class="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">None</option>
+                  <option
+                    v-for="license in licenses"
+                    :key="license.id"
+                    :value="license.id"
+                  >
+                    {{ license.license_key }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select v-model="form.priority" class="w-full px-3 py-2 border rounded-md">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select v-model="form.category" class="w-full px-3 py-2 border rounded-md">
+                  <option value="">None</option>
+                  <option value="technical">Technical</option>
+                  <option value="billing">Billing</option>
+                  <option value="feature_request">Feature Request</option>
+                  <option value="bug_report">Bug Report</option>
+                  <option value="account">Account</option>
+                  <option value="license">License</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
+              <input
+                v-model="form.subject"
+                type="text"
+                required
+                class="w-full px-3 py-2 border rounded-md"
+                placeholder="Short summary of the issue"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+              <textarea
+                v-model="form.description"
+                rows="5"
+                required
+                class="w-full px-3 py-2 border rounded-md"
+                placeholder="Describe the issue in detail..."
+              ></textarea>
+            </div>
+
+            <div v-if="error" class="text-sm text-red-600">
+              {{ error }}
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                @click="closeCreateModal"
+                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="creating"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <span v-if="creating">Creating...</span>
+                <span v-else>Create Ticket</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -58,8 +200,24 @@
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ formatDate(ticket.created_at) }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
               <router-link :to="`/tickets/${ticket.id}`" class="text-indigo-600 hover:text-indigo-900">View</router-link>
+              <button
+                type="button"
+                @click="quickUpdateStatus(ticket, 'in_progress')"
+                v-if="ticket.status === 'open'"
+                class="text-gray-700 hover:text-gray-900 text-xs"
+              >
+                Mark In Progress
+              </button>
+              <button
+                type="button"
+                @click="quickUpdateStatus(ticket, 'resolved')"
+                v-if="ticket.status === 'open' || ticket.status === 'in_progress'"
+                class="text-green-700 hover:text-green-900 text-xs"
+              >
+                Mark Resolved
+              </button>
             </td>
           </tr>
         </tbody>
@@ -77,6 +235,24 @@ const loading = ref(false)
 const searchQuery = ref('')
 const statusFilter = ref('')
 const priorityFilter = ref('')
+
+const showCreateModal = ref(false)
+const creating = ref(false)
+const error = ref('')
+
+const customers = ref<any[]>([])
+const products = ref<any[]>([])
+const licenses = ref<any[]>([])
+
+const form = ref({
+  customer_id: '' as number | '',
+  product_id: '' as number | '',
+  license_id: '' as number | '',
+  subject: '',
+  description: '',
+  priority: 'medium',
+  category: ''
+})
 
 const filteredTickets = computed(() => {
   let filtered = tickets.value
@@ -138,8 +314,102 @@ async function fetchTickets() {
   }
 }
 
+async function fetchMetadata() {
+  try {
+    const [customersRes, productsRes, licensesRes] = await Promise.all([
+      api.get(`${ADMIN_API_BASE_URL}/customers`, { params: { per_page: 100 } }),
+      api.get(`${ADMIN_API_BASE_URL}/products`, { params: { per_page: 100 } }),
+      api.get(`${ADMIN_API_BASE_URL}/licenses`, { params: { per_page: 100 } })
+    ])
+
+    customers.value = customersRes.data.data || customersRes.data
+    products.value = productsRes.data.data || productsRes.data
+    licenses.value = licensesRes.data.data || licensesRes.data
+  } catch (e) {
+    console.error('Failed to fetch ticket metadata:', e)
+  }
+}
+
+function openCreateModal() {
+  form.value = {
+    customer_id: '' as number | '',
+    product_id: '' as number | '',
+    license_id: '' as number | '',
+    subject: '',
+    description: '',
+    priority: 'medium',
+    category: ''
+  }
+  error.value = ''
+  showCreateModal.value = true
+}
+
+function closeCreateModal() {
+  if (creating.value) {
+    return
+  }
+  showCreateModal.value = false
+}
+
+async function handleCreate() {
+  creating.value = true
+  error.value = ''
+
+  const payload: any = {
+    customer_id: form.value.customer_id,
+    subject: form.value.subject,
+    description: form.value.description
+  }
+
+  if (form.value.product_id) {
+    payload.product_id = form.value.product_id
+  }
+  if (form.value.license_id) {
+    payload.license_id = form.value.license_id
+  }
+  if (form.value.priority) {
+    payload.priority = form.value.priority
+  }
+  if (form.value.category) {
+    payload.category = form.value.category
+  }
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/tickets`, payload)
+    const created = response.data.data || response.data
+    tickets.value.unshift(created)
+    showCreateModal.value = false
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      error.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      error.value = Object.values(errors).flat().join(', ')
+    } else {
+      error.value = 'Failed to create ticket. Please try again.'
+    }
+  } finally {
+    creating.value = false
+  }
+}
+
+async function quickUpdateStatus(ticket: any, status: string) {
+  const originalStatus = ticket.status
+  ticket.status = status
+
+  try {
+    const response = await api.put(`${ADMIN_API_BASE_URL}/tickets/${ticket.id}`, { status })
+    const updated = response.data.data || response.data
+    tickets.value = tickets.value.map((t: any) => (t.id === updated.id ? updated : t))
+  } catch (err) {
+    console.error('Failed to update ticket status:', err)
+    ticket.status = originalStatus
+  }
+}
+
 onMounted(() => {
   fetchTickets()
+  fetchMetadata()
 })
 </script>
 
