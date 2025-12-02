@@ -569,6 +569,10 @@ function calculatePeriodFromDates(purchasedDate: string | null, expiresDate: str
 }
 
 function openEditModal(license: any) {
+  // Fetch metadata if not already loaded
+  if (products.value.length === 0 || customers.value.length === 0) {
+    fetchMetadata()
+  }
   editingLicense.value = license
   const purchasedAt = license.purchased_at ? String(license.purchased_at).slice(0, 16) : ''
   
@@ -881,13 +885,16 @@ const route = useRoute()
 watch(() => route.name, (newName) => {
   if (newName === 'Licenses') {
     fetchLicenses()
-    fetchMetadata()
+    // Only fetch metadata if not already loaded
+    if (products.value.length === 0 || customers.value.length === 0) {
+      fetchMetadata()
+    }
   }
 }, { immediate: true })
 
 onMounted(() => {
   fetchLicenses()
-  fetchMetadata()
+  // Don't fetch metadata on mount - will be fetched when form is opened
 })
 </script>
 
