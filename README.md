@@ -388,14 +388,14 @@ ulsp/
   - [x] License renewal system (backend and UI complete)
   - [ ] Usage analytics and reporting
   - [ ] Export functionality (PDF reports)
-  - [ ] Bulk operations for licenses
+  - [x] Bulk operations for licenses (backend and UI complete)
 
 #### 3. Admin Dashboard Enhancements
 - [ ] **License Management**
   - [x] Create license form
   - [x] Edit license functionality
   - [x] License transfer UI
-  - [ ] Bulk operations
+  - [x] Bulk operations (status update, delete, transfer, renew)
   - [x] License renewal system (backend and UI complete)
   - [x] License expiration notifications (scheduled daily checks at 30, 7, and 1 days before expiration)
 
