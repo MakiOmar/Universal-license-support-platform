@@ -414,9 +414,9 @@ async function regenerateSecret(apiKey: any) {
   if (!confirmed) return
 
   try {
-    const response = await api.post(`/api/v1/admin/api-keys/${apiKey.id}/regenerate-secret`)
-    if (response.api_secret) {
-      displayedSecret.value = response.api_secret
+    const response = await api.post(`${ADMIN_API_BASE_URL}/api-keys/${apiKey.id}/regenerate-secret`)
+    if (response.data?.api_secret) {
+      displayedSecret.value = response.data.api_secret
       showSecretModal.value = true
     }
     toastSuccess('API secret regenerated successfully')
