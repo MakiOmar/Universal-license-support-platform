@@ -11,6 +11,15 @@ export default defineVitestConfig({
     tsconfigPaths({
       root: rootDir,
     }),
+    // Mock CSS imports
+    {
+      name: 'mock-css',
+      load(id) {
+        if (id.endsWith('.css')) {
+          return 'export default {}'
+        }
+      },
+    },
   ],
   resolve: {
     alias: {
@@ -18,20 +27,14 @@ export default defineVitestConfig({
       '@': rootDir,
       '~~': rootDir,
       '@@': rootDir,
+      // Explicitly resolve CSS paths
+      '~/assets/css/main.css': resolve(rootDir, 'assets/css/main.css'),
+      '~~/assets/css/main.css': resolve(rootDir, 'assets/css/main.css'),
     },
   },
-  // Handle CSS and asset imports
-  assetsInclude: ['**/*.css'],
-  // Mock CSS imports
   server: {
     deps: {
       inline: ['@nuxt/test-utils'],
-    },
-  },
-  // Configure Vite to handle CSS
-  css: {
-    modules: {
-      localsConvention: 'camelCase',
     },
   },
 })
