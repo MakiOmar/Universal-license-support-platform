@@ -116,6 +116,8 @@ ulsp/
   - License transfer routes (`/api/v1/admin/licenses/{id}/transfer`)
   - API key management routes (`/api/v1/admin/api-keys/*`)
   - Payment webhook routes (`/api/v1/webhooks/payment/{gateway}`)
+  - Ticket assignment routes (`/api/v1/admin/tickets/{ticket}/assign`)
+  - Admin list route (`/api/v1/admin/admins`)
 
 - ✅ **Authentication & Security**
   - Laravel Sanctum for admin dashboard authentication
@@ -684,13 +686,15 @@ For issues or questions, please refer to the wireframe documentation or create a
 - ✅ **Complete CRUD Operations**: Full create, edit, delete functionality for all entities
 - ✅ **SweetAlert2 Integration**: Consistent confirmation dialogs and toast notifications across admin dashboard and customer portal
 - ✅ **License Transfer**: Transfer licenses between customers
-- ✅ **Ticket Management**: Reply to tickets, update status/priority, close tickets
+- ✅ **Ticket Management**: Reply to tickets, update status/priority, close tickets, assign tickets to admins
 - ✅ **Error Handling**: Fixed null date errors in all API resources
 - ✅ **Route Optimization**: Fixed route order for import/export endpoints
 - ✅ **Stripe Payment Integration**: Payment intents, webhook handling, automatic license creation
+- ✅ **PayPal Payment Integration**: Orders API v2, webhook handling, automatic license creation
 - ✅ **API Key Management**: Full CRUD with admin dashboard UI, secret regeneration, expiration tracking
 - ✅ **License Expiration Notifications**: Scheduled daily checks with email notifications
 - ✅ **Import Completion Notifications**: Email notifications sent to admins when imports complete
+- ✅ **Ticket Assignment**: Assign tickets to admin users with UI in both list and detail views
 - ✅ **Customer Portal**: Complete Nuxt.js customer portal with authentication, dashboard, licenses, tickets, and profile pages
 - ✅ **Product Pages**: Public product listing and detail pages with search functionality
 
