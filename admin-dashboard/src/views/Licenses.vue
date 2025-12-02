@@ -263,6 +263,13 @@
       <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
     </div>
 
+    <div v-else-if="filteredLicenses.length === 0" class="bg-white shadow rounded-lg overflow-hidden p-8 text-center">
+      <p class="text-gray-500">
+        <span v-if="searchQuery || statusFilter">No licenses match your filters.</span>
+        <span v-else>No licenses found. Create your first license to get started.</span>
+      </p>
+    </div>
+
     <div v-else class="bg-white shadow rounded-lg overflow-hidden">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
@@ -311,7 +318,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
 import { useAlerts } from '../utils/alerts'
 
@@ -388,9 +396,20 @@ async function fetchLicenses() {
   loading.value = true
   try {
     const response = await api.get(`${ADMIN_API_BASE_URL}/licenses`, { params: { per_page: 100 } })
-    licenses.value = response.data.data || []
-  } catch (error) {
+    // Handle both paginated and non-paginated responses
+    if (response.data && Array.isArray(response.data)) {
+      licenses.value = response.data
+    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      licenses.value = response.data.data
+    } else {
+      licenses.value = []
+    }
+  } catch (error: any) {
     console.error('Failed to fetch licenses:', error)
+    licenses.value = []
+    if (error.response?.status !== 401) {
+      toastError('Failed to load licenses. Please refresh the page.')
+    }
   } finally {
     loading.value = false
   }
@@ -599,6 +618,16 @@ async function handleTransferSubmit() {
     transferSaving.value = false
   }
 }
+
+const route = useRoute()
+
+// Watch for route changes to refresh data when returning to this page
+watch(() => route.name, (newName) => {
+  if (newName === 'Licenses') {
+    fetchLicenses()
+    fetchMetadata()
+  }
+}, { immediate: true })
 
 onMounted(() => {
   fetchLicenses()
