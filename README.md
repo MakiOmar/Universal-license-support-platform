@@ -99,7 +99,7 @@ ulsp/
   - CustomerController (with import/export, customer-specific routes)
   - LicenseController (with activation/deactivation, transfer, validation)
   - TicketController (with replies, status updates, attachments)
-  - PaymentController (with Stripe integration, webhook handling)
+  - PaymentController (with Stripe and PayPal integration, webhook handling)
   - ApiKeyController (full CRUD for API key management)
   - AdminAuthController (Sanctum authentication)
   - AuthController (Customer JWT authentication)
@@ -130,8 +130,9 @@ ulsp/
 - ✅ **Services & Business Logic**
   - LicenseKeyGenerator (product-type specific key generation)
   - LicenseActivationService (activation/deactivation logic)
-  - CacheService (caching for performance)
   - StripePaymentService (Stripe payment integration)
+  - PayPalPaymentService (PayPal payment integration)
+  - CacheService (caching for performance)
   - Queue-based background processing (customer import, email sending)
   - Period-based date calculation (license expiration)
   - Customer authentication middleware (token validation)
@@ -141,7 +142,7 @@ ulsp/
   - HTML email templates (Blade)
   - License activation notifications
   - License expiration warnings (scheduled at 30, 7, and 1 days before expiration)
-  - Ticket creation/update notifications
+  - Ticket creation/update notifications (including assignment notifications)
   - Password reset emails
   - Payment confirmation emails
   - Import completion notifications
@@ -149,8 +150,9 @@ ulsp/
   - Error logging for failed emails
 
 - ✅ **Payment Integration**
-  - Stripe payment integration (payment intents, webhook handling)
-  - Payment intent creation with metadata
+  - Stripe payment integration (payment intents, webhook handling, signature verification)
+  - PayPal payment integration (Orders API v2, webhook handling, signature verification)
+  - Payment intent/order creation with metadata
   - Webhook signature verification
   - Automatic license creation on successful payment
   - Payment confirmation emails
@@ -232,7 +234,9 @@ ulsp/
   - Detail view with ticket information
   - Add replies with status/priority updates
   - Close ticket functionality
+  - Assign tickets to admins (with UI in list and detail views)
   - Quick status update actions (Mark In Progress, Mark Resolved)
+  - Display assigned admin information
   - Replies display
 
 - ✅ **Customer Management**
