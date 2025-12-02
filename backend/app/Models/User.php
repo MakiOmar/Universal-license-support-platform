@@ -46,4 +46,9 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function assignedTickets()
+    {
+        return $this->hasMany(\App\Models\SupportTicket::class, 'assigned_to');
+    }
 }

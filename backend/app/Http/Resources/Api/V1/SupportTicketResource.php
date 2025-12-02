@@ -26,6 +26,13 @@ class SupportTicketResource extends JsonResource
             'status' => $this->status,
             'category' => $this->category,
             'assigned_to' => $this->assigned_to,
+            'assigned_admin' => $this->when($this->whenLoaded('assignedAdmin'), function () {
+                return [
+                    'id' => $this->assignedAdmin->id,
+                    'name' => $this->assignedAdmin->name,
+                    'email' => $this->assignedAdmin->email,
+                ];
+            }),
             'replies' => TicketReplyResource::collection($this->whenLoaded('replies')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

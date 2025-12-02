@@ -51,6 +51,11 @@ class SupportTicket extends Model
     {
         return $this->hasMany(TicketAttachment::class, 'ticket_id');
     }
+
+    public function assignedAdmin()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
 }
 
 

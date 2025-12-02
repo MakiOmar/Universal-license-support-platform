@@ -31,6 +31,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'sanitize.input', 'rate.limit:60,1'])->prefix('admin')->group(function () {
         Route::get('/me', [\App\Http\Controllers\Api\V1\AdminAuthController::class, 'me']);
         Route::post('/logout', [\App\Http\Controllers\Api\V1\AdminAuthController::class, 'logout']);
+        Route::get('/admins', [\App\Http\Controllers\Api\V1\AdminAuthController::class, 'listAdmins']);
 
         // Products
         Route::apiResource('products', ProductController::class);

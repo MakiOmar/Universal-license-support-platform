@@ -71,5 +71,17 @@ class AdminAuthController extends Controller
             'message' => 'Logged out successfully.',
         ]);
     }
+
+    /**
+     * Get list of admin users (for ticket assignment, etc.)
+     */
+    public function listAdmins(Request $request)
+    {
+        $admins = User::select('id', 'name', 'email')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($admins);
+    }
 }
 

@@ -21,7 +21,8 @@ class TicketController extends Controller
             'customer:id,email,first_name,last_name',
             'license:id,license_key,product_id',
             'product:id,name,slug',
-        ])->select('id', 'ticket_number', 'customer_id', 'license_id', 'product_id', 'subject', 'priority', 'status', 'category', 'created_at', 'updated_at');
+            'assignedAdmin:id,name,email',
+        ])->select('id', 'ticket_number', 'customer_id', 'license_id', 'product_id', 'subject', 'priority', 'status', 'category', 'assigned_to', 'created_at', 'updated_at');
 
         if ($request->filled('status')) {
             $query->where('status', $request->get('status'));
@@ -46,7 +47,7 @@ class TicketController extends Controller
 
     public function show(SupportTicket $ticket)
     {
-        $ticket->load(['customer', 'license', 'product', 'replies']);
+        $ticket->load(['customer', 'license', 'product', 'replies', 'assignedAdmin']);
 
         return new SupportTicketResource($ticket);
     }
@@ -108,7 +109,15 @@ class TicketController extends Controller
         ]);
 
         $ticket->update($data);
-        $ticket->load(['customer', 'license', 'product', 'replies']);
+        $ticket->load(['customer', 'license', 'product', 'replies', 'assignedAdmin']);
+
+        // Send email notification if ticket was assigned
+        if (isset($data['assigned_to']) && $ticket->customer && $ticket->customer->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\TicketUpdatedMail($ticket, 'assigned'),
+                $ticket->customer->email
+            );
+        }
 
         return new SupportTicketResource($ticket);
     }
@@ -221,6 +230,29 @@ class TicketController extends Controller
                 'created_at' => $attachment->created_at->toIso8601String(),
             ],
         ], 201);
+    }
+
+    /**
+     * Assign ticket to an admin user
+     */
+    public function assign(Request $request, SupportTicket $ticket)
+    {
+        $data = $request->validate([
+            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+
+        $ticket->update(['assigned_to' => $data['assigned_to']]);
+        $ticket->load(['customer', 'license', 'product', 'replies', 'assignedAdmin']);
+
+        // Send email notification if ticket was assigned
+        if ($data['assigned_to'] && $ticket->customer && $ticket->customer->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\TicketUpdatedMail($ticket, 'assigned'),
+                $ticket->customer->email
+            );
+        }
+
+        return new SupportTicketResource($ticket);
     }
 }
 
