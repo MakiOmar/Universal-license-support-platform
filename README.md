@@ -95,11 +95,12 @@ ulsp/
   - Payment, ApiKey, User
 
 - ✅ **API Controllers**: Full CRUD operations
-  - ProductController
-  - CustomerController
-  - LicenseController (with activation/deactivation)
-  - TicketController (with replies and attachments)
-  - PaymentController
+  - ProductController (with public access, search functionality)
+  - CustomerController (with import/export, customer-specific routes)
+  - LicenseController (with activation/deactivation, transfer, validation)
+  - TicketController (with replies, status updates, attachments)
+  - PaymentController (with Stripe integration, webhook handling)
+  - ApiKeyController (full CRUD for API key management)
   - AdminAuthController (Sanctum authentication)
   - AuthController (Customer JWT authentication)
   - WebhookController
@@ -113,6 +114,8 @@ ulsp/
   - Webhook routes (`/api/v1/webhooks/*`)
   - Customer import/export routes (`/api/v1/admin/customers/import`, `/export`)
   - License transfer routes (`/api/v1/admin/licenses/{id}/transfer`)
+  - API key management routes (`/api/v1/admin/api-keys/*`)
+  - Payment webhook routes (`/api/v1/webhooks/payment/{gateway}`)
 
 - ✅ **Authentication & Security**
   - Laravel Sanctum for admin dashboard authentication
