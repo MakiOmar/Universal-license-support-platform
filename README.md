@@ -360,8 +360,8 @@ ulsp/
 #### 2. Backend Enhancements
 - [x] **Payment Integration**
   - [x] Stripe integration (payment intents, webhook handling, signature verification)
-  - [ ] PayPal integration
-  - [x] Payment webhook handlers (Stripe implemented, generic handler for others)
+  - [x] PayPal integration (Orders API v2, webhook handling, signature verification)
+  - [x] Payment webhook handlers (Stripe and PayPal implemented, generic handler for others)
   - [ ] Subscription management
 
 - [x] **Email Notifications**
