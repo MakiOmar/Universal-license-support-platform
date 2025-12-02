@@ -8,11 +8,19 @@ use App\Models\Customer;
 use App\Models\License;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
+    protected StripePaymentService $stripeService;
+
+    public function __construct(StripePaymentService $stripeService)
+    {
+        $this->stripeService = $stripeService;
+    }
+
     public function index(Request $request)
     {
         $query = Payment::with(['customer', 'license']);
@@ -123,24 +131,73 @@ class PaymentController extends Controller
         return response()->json($payment);
     }
 
+    /**
+     * Handle payment gateway webhooks
+     */
     public function webhook(Request $request, string $gateway)
     {
-        // Handle payment gateway webhooks (Stripe, PayPal, etc.)
         $payload = $request->all();
 
         // Log webhook for debugging
         \Illuminate\Support\Facades\Log::info("Payment webhook received from {$gateway}", $payload);
 
-        // Find payment by transaction_id
+        // Handle Stripe webhooks
+        if ($gateway === 'stripe') {
+            // Verify webhook signature in production
+            if (config('services.stripe.webhook_secret')) {
+                $signature = $request->header('Stripe-Signature');
+                $payloadString = $request->getContent();
+                
+                if (!$this->stripeService->verifyWebhookSignature($payloadString, $signature, config('services.stripe.webhook_secret'))) {
+                    return response()->json(['error' => 'Invalid signature'], 401);
+                }
+            }
+
+            $result = $this->stripeService->handleWebhook($payload);
+            
+            // If payment succeeded and no license exists, create one
+            if ($result['status'] === 'success' && isset($result['payment'])) {
+                $payment = $result['payment'];
+                
+                if ($payment->status === 'completed' && !$payment->license_id && $payment->customer_id) {
+                    // Get product_id from payment metadata or request
+                    $productId = $payload['data']['object']['metadata']['product_id'] ?? null;
+                    
+                    if ($productId) {
+                        $product = Product::find($productId);
+                        if ($product) {
+                            $licenseKeyGenerator = app(\App\Services\LicenseKeyGenerator::class);
+                            
+                            $license = License::create([
+                                'license_key' => $licenseKeyGenerator->generateForType($product),
+                                'product_id' => $productId,
+                                'customer_id' => $payment->customer_id,
+                                'license_type' => $payload['data']['object']['metadata']['license_type'] ?? 'single_site',
+                                'max_activations' => (int) ($payload['data']['object']['metadata']['max_activations'] ?? 1),
+                                'status' => 'active',
+                                'purchased_at' => now(),
+                            ]);
+                            
+                            $payment->license_id = $license->id;
+                            $payment->save();
+                        }
+                    }
+                }
+            }
+            
+            return response()->json($result);
+        }
+
+        // Handle other gateways (PayPal, etc.) - generic handler
         $transactionId = $payload['transaction_id'] ?? $payload['id'] ?? null;
 
-        if (! $transactionId) {
+        if (!$transactionId) {
             return response()->json(['error' => 'Transaction ID not found'], 400);
         }
 
         $payment = Payment::where('transaction_id', $transactionId)->first();
 
-        if (! $payment) {
+        if (!$payment) {
             return response()->json(['error' => 'Payment not found'], 404);
         }
 
@@ -153,7 +210,7 @@ class PaymentController extends Controller
         };
 
         $payment->status = $status;
-        if ($status === 'completed' && ! $payment->paid_at) {
+        if ($status === 'completed' && !$payment->paid_at) {
             $payment->paid_at = now();
         }
         $payment->save();
@@ -165,12 +222,6 @@ class PaymentController extends Controller
                 new \App\Mail\PaymentConfirmationMail($payment),
                 $payment->customer->email
             );
-        }
-
-        // If payment completed and no license exists, create one
-        if ($status === 'completed' && ! $payment->license_id && $payment->customer_id) {
-            // This would need product_id stored in payment or passed in webhook
-            // For now, we'll just mark it as needing license creation
         }
 
         return response()->json(['success' => true, 'payment' => $payment]);
