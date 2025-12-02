@@ -25,6 +25,45 @@
       </button>
     </div>
 
+    <!-- Bulk Actions Toolbar -->
+    <div v-if="selectedLicenses.length > 0" class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex justify-between items-center">
+      <div class="text-sm text-blue-800">
+        <strong>{{ selectedLicenses.length }}</strong> license(s) selected
+      </div>
+      <div class="flex gap-2">
+        <button
+          @click="openBulkStatusModal"
+          class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+        >
+          Update Status
+        </button>
+        <button
+          @click="openBulkTransferModal"
+          class="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
+        >
+          Transfer
+        </button>
+        <button
+          @click="openBulkRenewModal"
+          class="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+        >
+          Renew
+        </button>
+        <button
+          @click="handleBulkDelete"
+          class="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
+        >
+          Delete
+        </button>
+        <button
+          @click="clearSelection"
+          class="px-3 py-1.5 bg-gray-400 text-white text-sm rounded-md hover:bg-gray-500"
+        >
+          Clear Selection
+        </button>
+      </div>
+    </div>
+
     <!-- Create / Edit License Modal -->
     <div
       v-if="showFormModal"
@@ -274,6 +313,14 @@
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <input
+                type="checkbox"
+                :checked="selectedLicenses.length === filteredLicenses.length && filteredLicenses.length > 0"
+                @change="toggleSelectAll"
+                class="rounded border-gray-300"
+              />
+            </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">License Key</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
@@ -284,6 +331,14 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="license in filteredLicenses" :key="license.id">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <input
+                type="checkbox"
+                :checked="isSelected(license.id)"
+                @change="toggleSelection(license.id)"
+                class="rounded border-gray-300"
+              />
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-mono">{{ license.license_key }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ license.product?.name || 'N/A' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ license.customer?.email || 'N/A' }}</td>
@@ -357,6 +412,32 @@ const transferLicense = ref<any | null>(null)
 const transferCustomerId = ref<number | ''>('')
 
 const { toastSuccess, toastError, confirmAction } = useAlerts()
+
+// Selection management
+function isSelected(licenseId: number) {
+  return selectedLicenses.value.includes(licenseId)
+}
+
+function toggleSelection(licenseId: number) {
+  const index = selectedLicenses.value.indexOf(licenseId)
+  if (index > -1) {
+    selectedLicenses.value.splice(index, 1)
+  } else {
+    selectedLicenses.value.push(licenseId)
+  }
+}
+
+function toggleSelectAll() {
+  if (selectedLicenses.value.length === filteredLicenses.value.length) {
+    selectedLicenses.value = []
+  } else {
+    selectedLicenses.value = filteredLicenses.value.map((l: any) => l.id)
+  }
+}
+
+function clearSelection() {
+  selectedLicenses.value = []
+}
 
 const filteredLicenses = computed(() => {
   let filtered = licenses.value

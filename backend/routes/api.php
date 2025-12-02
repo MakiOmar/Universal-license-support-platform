@@ -51,6 +51,7 @@ Route::prefix('v1')->group(function () {
         Route::get('licenses/by-key/{license_key}/activations', [LicenseController::class, 'getActivations']);
         Route::get('licenses/by-key/{license_key}/updates', [LicenseController::class, 'checkUpdates']);
         Route::apiResource('licenses', LicenseController::class);
+        Route::post('licenses/bulk', [LicenseController::class, 'bulkOperation']);
         Route::post('licenses/{license}/transfer', [LicenseController::class, 'transfer']);
         Route::post('licenses/{license}/renew', [LicenseController::class, 'renew']);
 
@@ -119,6 +120,7 @@ Route::prefix('v1')->group(function () {
         Route::get('licenses/by-key/{license_key}/activations', [LicenseController::class, 'getActivations']);
         Route::get('licenses/by-key/{license_key}/updates', [LicenseController::class, 'checkUpdates']);
         Route::apiResource('licenses', LicenseController::class);
+        Route::post('licenses/bulk', [LicenseController::class, 'bulkOperation']);
         Route::post('licenses/{license}/transfer', [LicenseController::class, 'transfer']);
         Route::post('licenses/{license}/renew', [LicenseController::class, 'renew']);
 

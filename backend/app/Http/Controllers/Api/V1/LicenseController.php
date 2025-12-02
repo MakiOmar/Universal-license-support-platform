@@ -321,6 +321,94 @@ class LicenseController extends Controller
             'payment' => $payment,
         ]);
     }
+
+    /**
+     * Bulk operations on licenses
+     */
+    public function bulkOperation(Request $request)
+    {
+        $data = $request->validate([
+            'license_ids' => ['required', 'array', 'min:1'],
+            'license_ids.*' => ['integer', 'exists:licenses,id'],
+            'action' => ['required', 'string', 'in:update_status,delete,transfer,renew'],
+            'status' => ['required_if:action,update_status', 'string', 'in:pending,active,expired,suspended,cancelled'],
+            'new_customer_id' => ['required_if:action,transfer', 'integer', 'exists:customers,id'],
+            'renewal_period_value' => ['required_if:action,renew', 'integer', 'min:1'],
+            'renewal_period_unit' => ['required_if:action,renew', 'string', Rule::in(['day', 'days', 'month', 'months', 'year', 'years'])],
+        ]);
+
+        $licenseIds = $data['license_ids'];
+        $action = $data['action'];
+        $results = [
+            'success' => [],
+            'failed' => [],
+            'total' => count($licenseIds),
+        ];
+
+        foreach ($licenseIds as $licenseId) {
+            try {
+                $license = License::findOrFail($licenseId);
+
+                switch ($action) {
+                    case 'update_status':
+                        $license->status = $data['status'];
+                        $license->save();
+                        $results['success'][] = $licenseId;
+                        break;
+
+                    case 'delete':
+                        $license->delete();
+                        $results['success'][] = $licenseId;
+                        break;
+
+                    case 'transfer':
+                        $license->customer_id = $data['new_customer_id'];
+                        $license->save();
+                        $results['success'][] = $licenseId;
+                        break;
+
+                    case 'renew':
+                        $currentExpiresAt = $license->expires_at ?? now();
+                        $expiresAt = \Carbon\Carbon::parse($currentExpiresAt);
+                        
+                        if ($expiresAt->isPast()) {
+                            $expiresAt = now();
+                        }
+
+                        $unit = rtrim($data['renewal_period_unit'], 's');
+                        $newExpiresAt = $expiresAt->copy()->add($data['renewal_period_value'], $unit);
+
+                        $license->expires_at = $newExpiresAt;
+                        
+                        if ($license->status === 'expired') {
+                            $license->status = 'active';
+                        }
+                        
+                        $license->save();
+                        $results['success'][] = $licenseId;
+                        break;
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Bulk operation failed for license {$licenseId}", [
+                    'action' => $action,
+                    'error' => $e->getMessage(),
+                ]);
+                $results['failed'][] = [
+                    'license_id' => $licenseId,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        $successCount = count($results['success']);
+        $failedCount = count($results['failed']);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Bulk operation completed: {$successCount} succeeded, {$failedCount} failed",
+            'results' => $results,
+        ]);
+    }
 }
 
 
