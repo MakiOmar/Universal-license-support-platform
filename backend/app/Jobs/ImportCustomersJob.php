@@ -170,5 +170,14 @@ class ImportCustomersJob implements ShouldQueue
         // Keep only last 10 keys
         $keys = array_slice($keys, -10);
         cache()->put("customer_import_keys_{$this->userId}", $keys, now()->addHours(24));
+
+        // Send email notification to admin user
+        $user = \App\Models\User::find($this->userId);
+        if ($user && $user->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\ImportCompletedMail($imported, $skipped, $errors, 'customers'),
+                $user->email
+            );
+        }
     }
 }
