@@ -700,6 +700,167 @@ async function handleTransferSubmit() {
   }
 }
 
+// Bulk operation handlers
+function openBulkStatusModal() {
+  bulkStatus.value = ''
+  bulkError.value = ''
+  showBulkStatusModal.value = true
+}
+
+function openBulkTransferModal() {
+  bulkTransferCustomerId.value = ''
+  bulkError.value = ''
+  showBulkTransferModal.value = true
+}
+
+function openBulkRenewModal() {
+  bulkRenewForm.value = { period_value: 1, period_unit: 'year' }
+  bulkError.value = ''
+  showBulkRenewModal.value = true
+}
+
+async function handleBulkStatusUpdate() {
+  if (!bulkStatus.value) {
+    bulkError.value = 'Please select a status'
+    return
+  }
+
+  bulkProcessing.value = true
+  bulkError.value = ''
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/licenses/bulk`, {
+      license_ids: selectedLicenses.value,
+      action: 'update_status',
+      status: bulkStatus.value
+    })
+
+    toastSuccess(response.data.message || 'Status updated successfully')
+    selectedLicenses.value = []
+    showBulkStatusModal.value = false
+    await fetchLicenses()
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      bulkError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      bulkError.value = Object.values(errors).flat().join(', ')
+    } else {
+      bulkError.value = 'Failed to update status. Please try again.'
+    }
+    toastError(bulkError.value || 'Failed to update status. Please try again.')
+  } finally {
+    bulkProcessing.value = false
+  }
+}
+
+async function handleBulkTransfer() {
+  if (!bulkTransferCustomerId.value) {
+    bulkError.value = 'Please select a customer'
+    return
+  }
+
+  bulkProcessing.value = true
+  bulkError.value = ''
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/licenses/bulk`, {
+      license_ids: selectedLicenses.value,
+      action: 'transfer',
+      new_customer_id: bulkTransferCustomerId.value
+    })
+
+    toastSuccess(response.data.message || 'Licenses transferred successfully')
+    selectedLicenses.value = []
+    showBulkTransferModal.value = false
+    await fetchLicenses()
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      bulkError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      bulkError.value = Object.values(errors).flat().join(', ')
+    } else {
+      bulkError.value = 'Failed to transfer licenses. Please try again.'
+    }
+    toastError(bulkError.value || 'Failed to transfer licenses. Please try again.')
+  } finally {
+    bulkProcessing.value = false
+  }
+}
+
+async function handleBulkRenew() {
+  if (!bulkRenewForm.value.period_value || !bulkRenewForm.value.period_unit) {
+    bulkError.value = 'Please fill in all renewal fields'
+    return
+  }
+
+  bulkProcessing.value = true
+  bulkError.value = ''
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/licenses/bulk`, {
+      license_ids: selectedLicenses.value,
+      action: 'renew',
+      renewal_period_value: bulkRenewForm.value.period_value,
+      renewal_period_unit: bulkRenewForm.value.period_unit
+    })
+
+    toastSuccess(response.data.message || 'Licenses renewed successfully')
+    selectedLicenses.value = []
+    showBulkRenewModal.value = false
+    await fetchLicenses()
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      bulkError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      bulkError.value = Object.values(errors).flat().join(', ')
+    } else {
+      bulkError.value = 'Failed to renew licenses. Please try again.'
+    }
+    toastError(bulkError.value || 'Failed to renew licenses. Please try again.')
+  } finally {
+    bulkProcessing.value = false
+  }
+}
+
+async function handleBulkDelete() {
+  const confirmed = await confirmAction(
+    `Are you sure you want to delete ${selectedLicenses.value.length} license(s)? This action cannot be undone.`
+  )
+
+  if (!confirmed) {
+    return
+  }
+
+  bulkProcessing.value = true
+  bulkError.value = ''
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/licenses/bulk`, {
+      license_ids: selectedLicenses.value,
+      action: 'delete'
+    })
+
+    toastSuccess(response.data.message || 'Licenses deleted successfully')
+    selectedLicenses.value = []
+    await fetchLicenses()
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      bulkError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      bulkError.value = Object.values(errors).flat().join(', ')
+    } else {
+      bulkError.value = 'Failed to delete licenses. Please try again.'
+    }
+    toastError(bulkError.value || 'Failed to delete licenses. Please try again.')
+  } finally {
+    bulkProcessing.value = false
+  }
+}
+
 const route = useRoute()
 
 // Watch for route changes to refresh data when returning to this page
