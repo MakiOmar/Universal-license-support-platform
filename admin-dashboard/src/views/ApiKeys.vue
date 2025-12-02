@@ -238,7 +238,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
-import { confirmAction, toastSuccess, toastError } from '../utils/alerts'
+import { useAlerts } from '../utils/alerts'
 
 const router = useRouter()
 
@@ -263,6 +263,8 @@ const formData = ref({
 })
 
 let searchTimeout: NodeJS.Timeout | null = null
+
+const { toastSuccess, toastError, confirmAction } = useAlerts()
 
 onMounted(async () => {
   await Promise.all([fetchApiKeys(), fetchCustomers(), fetchProducts()])
