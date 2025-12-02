@@ -89,6 +89,120 @@ class CustomerController extends Controller
     }
 
     /**
+     * Get authenticated customer's licenses
+     * Performance: Uses select() to limit columns, eager loading for relationships
+     */
+    public function myLicenses(Request $request)
+    {
+        $customer = $request->user();
+        
+        $perPage = min($request->get('per_page', 25), 100);
+        
+        // Performance: Select only needed columns, eager load relationships
+        $licenses = $customer->licenses()
+            ->with(['product:id,name,slug']) // Eager load to avoid N+1 queries
+            ->select('id', 'license_key', 'product_id', 'customer_id', 'license_type', 'status', 'expires_at', 'support_expires_at', 'created_at')
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        return \App\Http\Resources\Api\V1\LicenseResource::collection($licenses);
+    }
+
+    /**
+     * Get authenticated customer's specific license
+     * Security: Ensures customer can only access their own licenses
+     */
+    public function myLicense(Request $request, $id)
+    {
+        $customer = $request->user();
+        
+        // Security: Only allow access to own licenses
+        $license = $customer->licenses()
+            ->with(['product', 'activations'])
+            ->findOrFail($id);
+
+        return new \App\Http\Resources\Api\V1\LicenseResource($license);
+    }
+
+    /**
+     * Get authenticated customer's tickets
+     * Performance: Uses select() to limit columns, eager loading, indexed queries
+     */
+    public function myTickets(Request $request)
+    {
+        $customer = $request->user();
+        
+        $perPage = min($request->get('per_page', 25), 100);
+        
+        // Performance: Select only needed columns, eager load relationships
+        $query = $customer->supportTickets()
+            ->with(['license:id,license_key', 'product:id,name', 'replies:id,ticket_id,message,created_at']) // Eager load to avoid N+1
+            ->select('id', 'ticket_number', 'customer_id', 'license_id', 'product_id', 'subject', 'priority', 'status', 'category', 'created_at', 'updated_at');
+
+        // Filter by status if provided (uses indexed column)
+        if ($request->filled('status')) {
+            $query->where('status', $request->get('status'));
+        }
+
+        // Filter by priority if provided (uses indexed column)
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->get('priority'));
+        }
+
+        // Performance: Order by indexed created_at column
+        $tickets = $query->orderByDesc('created_at')->paginate($perPage);
+
+        return \App\Http\Resources\Api\V1\SupportTicketResource::collection($tickets);
+    }
+
+    /**
+     * Get authenticated customer's specific ticket
+     * Security: Ensures customer can only access their own tickets
+     */
+    public function myTicket(Request $request, $id)
+    {
+        $customer = $request->user();
+        
+        // Security: Only allow access to own tickets
+        $ticket = $customer->supportTickets()
+            ->with(['license', 'product', 'replies'])
+            ->findOrFail($id);
+
+        return new \App\Http\Resources\Api\V1\SupportTicketResource($ticket);
+    }
+
+    /**
+     * Update authenticated customer's profile
+     * Security: Customers can only update their own profile, cannot change status
+     */
+    public function updateProfile(Request $request)
+    {
+        $customer = $request->user();
+        
+        $data = $request->validate([
+            'email' => ['sometimes', 'email', 'max:255', 'unique:customers,email,' . $customer->id],
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
+            'company' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'password' => ['sometimes', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        // Security: Prevent customers from changing their own status
+        // Status changes must be done by admin only
+
+        // Handle password update separately with secure hashing
+        if (isset($data['password'])) {
+            $data['password_hash'] = \Illuminate\Support\Facades\Hash::make($data['password']);
+            unset($data['password'], $data['password_confirmation']);
+        }
+
+        $customer->update($data);
+
+        return new CustomerResource($customer);
+    }
+
+    /**
      * Export customers to CSV
      */
     public function export(Request $request)

@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'api.key' => ApiKeyAuth::class,
+            'customer.auth' => \App\Http\Middleware\CustomerAuth::class,
             'rate.limit' => \App\Http\Middleware\RateLimitMiddleware::class,
             'sanitize.input' => \App\Http\Middleware\SanitizeInput::class,
             'secure.upload' => \App\Http\Middleware\SecureFileUpload::class,

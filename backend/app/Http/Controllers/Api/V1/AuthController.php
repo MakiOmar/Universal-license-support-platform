@@ -132,10 +132,24 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Get authenticated customer info
+     */
+    public function me(Request $request)
+    {
+        $customer = $request->user();
+        
+        return new \App\Http\Resources\Api\V1\CustomerResource($customer);
+    }
+
     protected function generateToken(Customer $customer): string
     {
         // Simple token generation (in production, use Laravel Sanctum or JWT)
+        // Using secure random token with sufficient length
         $token = Str::random(80);
+        
+        // Store token in cache with expiration (30 days)
+        // In production, consider using database for token storage
         \Illuminate\Support\Facades\Cache::put(
             "customer_token_{$token}",
             $customer->id,

@@ -72,8 +72,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/forgot-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'forgotPassword']);
     Route::post('/auth/reset-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'resetPassword']);
 
-    // Customer routes (protected with JWT token)
-    Route::middleware(['sanitize.input', 'rate.limit:60,1'])->prefix('customer')->group(function () {
+    // Customer routes (protected with customer token authentication)
+    Route::middleware(['customer.auth', 'sanitize.input', 'rate.limit:60,1'])->prefix('customer')->group(function () {
         Route::get('/me', [\App\Http\Controllers\Api\V1\AuthController::class, 'me']);
         Route::get('/licenses', [\App\Http\Controllers\Api\V1\CustomerController::class, 'myLicenses']);
         Route::get('/licenses/{license}', [\App\Http\Controllers\Api\V1\CustomerController::class, 'myLicense']);
