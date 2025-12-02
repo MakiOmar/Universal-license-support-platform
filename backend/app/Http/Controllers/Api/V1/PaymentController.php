@@ -45,6 +45,9 @@ class PaymentController extends Controller
         return response()->json($payment);
     }
 
+    /**
+     * Create a payment and optionally initialize Stripe payment intent
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -52,11 +55,12 @@ class PaymentController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['nullable', 'string', 'max:3', 'default:USD'],
-            'payment_method' => ['required', 'string', 'max:50'],
+            'payment_method' => ['required', 'string', 'max:50', 'in:stripe,paypal,manual'],
             'transaction_id' => ['nullable', 'string', 'max:255'],
             'license_type' => ['nullable', 'string', 'max:50'],
             'max_activations' => ['nullable', 'integer', 'min:1', 'default:1'],
             'expires_at' => ['nullable', 'date'],
+            'create_stripe_intent' => ['nullable', 'boolean'], // If true, create Stripe payment intent
         ]);
 
         $payment = Payment::create([
@@ -68,9 +72,41 @@ class PaymentController extends Controller
             'status' => 'pending',
         ]);
 
-        // If payment is successful, create license
+        $product = Product::findOrFail($data['product_id']);
+
+        // If Stripe payment, create payment intent
+        if ($data['payment_method'] === 'stripe' && ($request->input('create_stripe_intent') || config('services.stripe.secret_key'))) {
+            try {
+                $paymentIntent = $this->stripeService->createPaymentIntent($payment, $product, [
+                    'license_type' => $data['license_type'] ?? 'single_site',
+                    'max_activations' => $data['max_activations'] ?? 1,
+                ]);
+
+                $payment->load(['customer']);
+
+                return response()->json([
+                    'payment' => $payment,
+                    'payment_intent' => [
+                        'id' => $paymentIntent->id,
+                        'client_secret' => $paymentIntent->client_secret,
+                        'status' => $paymentIntent->status,
+                    ],
+                ], 201);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to create Stripe payment intent', [
+                    'error' => $e->getMessage(),
+                    'payment_id' => $payment->id,
+                ]);
+
+                return response()->json([
+                    'message' => 'Failed to initialize payment',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        // If payment is successful (manual or already completed), create license
         if ($request->input('status') === 'completed' || $request->input('auto_create_license')) {
-            $product = Product::findOrFail($data['product_id']);
             $licenseKeyGenerator = app(\App\Services\LicenseKeyGenerator::class);
 
             $license = License::create([
