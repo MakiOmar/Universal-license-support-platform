@@ -58,7 +58,8 @@ const navigation = [
   { name: 'Licenses', to: '/licenses', label: 'Licenses', icon: 'div' },
   { name: 'Tickets', to: '/tickets', label: 'Tickets', icon: 'div' },
   { name: 'Customers', to: '/customers', label: 'Customers', icon: 'div' },
-  { name: 'Products', to: '/products', label: 'Products', icon: 'div' }
+  { name: 'Products', to: '/products', label: 'Products', icon: 'div' },
+  { name: 'ApiKeys', to: '/api-keys', label: 'API Keys', icon: 'div' }
 ]
 
 const currentPageTitle = computed(() => {

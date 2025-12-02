@@ -54,6 +54,11 @@ const router = createRouter({
           path: 'products',
           name: 'Products',
           component: () => import('../views/Products.vue')
+        },
+        {
+          path: 'api-keys',
+          name: 'ApiKeys',
+          component: () => import('../views/ApiKeys.vue')
         }
       ]
     }

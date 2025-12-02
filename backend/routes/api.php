@@ -64,6 +64,10 @@ Route::prefix('v1')->group(function () {
 
         // Payments
         Route::apiResource('payments', \App\Http\Controllers\Api\V1\PaymentController::class);
+
+        // API Keys
+        Route::apiResource('api-keys', \App\Http\Controllers\Api\V1\ApiKeyController::class);
+        Route::post('api-keys/{api_key}/regenerate-secret', [\App\Http\Controllers\Api\V1\ApiKeyController::class, 'regenerateSecret']);
     });
 
     // Public customer authentication routes
