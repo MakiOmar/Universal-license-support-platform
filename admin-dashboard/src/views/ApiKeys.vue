@@ -237,7 +237,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../services/api'
+import api, { ADMIN_API_BASE_URL } from '../services/api'
 import { useAlerts } from '../utils/alerts'
 
 const router = useRouter()
@@ -278,7 +278,7 @@ async function fetchApiKeys() {
     if (statusFilter.value) params.status = statusFilter.value
 
     const queryString = new URLSearchParams(params).toString()
-    const response = await api.get(`/api/v1/admin/api-keys?${queryString}`)
+    const response = await api.get(`${ADMIN_API_BASE_URL}/api-keys?${queryString}`)
     
     apiKeys.value = response.data || []
     pagination.value = {
@@ -299,7 +299,7 @@ async function fetchApiKeys() {
 
 async function fetchCustomers() {
   try {
-    const response = await api.get('/api/v1/admin/customers?per_page=1000')
+    const response = await api.get(`${ADMIN_API_BASE_URL}/customers?per_page=1000`)
     customers.value = response.data || []
   } catch (error) {
     console.error('Failed to fetch customers:', error)
@@ -308,7 +308,7 @@ async function fetchCustomers() {
 
 async function fetchProducts() {
   try {
-    const response = await api.get('/api/v1/admin/products?per_page=1000')
+    const response = await api.get(`${ADMIN_API_BASE_URL}/products?per_page=1000`)
     products.value = response.data || []
   } catch (error) {
     console.error('Failed to fetch products:', error)
