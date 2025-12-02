@@ -50,20 +50,29 @@
         </div>
         <div class="px-6 py-5">
           <p class="text-sm text-gray-600 mb-4">
-            To purchase a license for this product, please contact support or use the admin dashboard.
+            To purchase a license for this product, please contact support through a ticket.
           </p>
-          <NuxtLink
-            to="/tickets"
-            class="inline-block px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium"
-          >
-            Contact Support
-          </NuxtLink>
+          <div class="flex gap-3">
+            <NuxtLink
+              to="/tickets"
+              class="inline-block px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium"
+            >
+              Contact Support
+            </NuxtLink>
+            <NuxtLink
+              to="/licenses"
+              class="inline-block px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium"
+            >
+              View My Licenses
+            </NuxtLink>
+          </div>
         </div>
       </div>
 
       <div v-else class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <p class="text-sm text-yellow-800">
-          Please <NuxtLink to="/login" class="font-medium underline">log in</NuxtLink> to purchase a license.
+          Please <NuxtLink to="/login" class="font-medium underline">log in</NuxtLink> or 
+          <NuxtLink to="/register" class="font-medium underline">create an account</NuxtLink> to purchase a license.
         </p>
       </div>
     </div>

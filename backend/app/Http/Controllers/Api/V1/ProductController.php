@@ -13,17 +13,20 @@ class ProductController extends Controller
     /**
      * List products (public endpoint)
      * Performance: Uses select() to limit columns, supports search filtering
+     * Security: Only shows active products to public, prevents information disclosure
      */
     public function index(Request $request)
     {
         $perPage = min($request->get('per_page', 25), 100);
 
+        // Performance: Select only needed columns, filter by status (indexed)
         $query = Product::select('id', 'name', 'slug', 'description', 'type', 'version', 'status', 'created_at', 'updated_at')
-            ->where('status', 'active'); // Only show active products to public
+            ->where('status', 'active'); // Security: Only show active products to public
 
-        // Search functionality
+        // Search functionality with parameterized queries (SQL injection protection)
         if ($request->filled('search')) {
             $search = $request->get('search');
+            // Security: Use parameterized queries to prevent SQL injection
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
