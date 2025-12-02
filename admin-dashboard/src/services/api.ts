@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 
@@ -6,18 +6,18 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000
 export const ADMIN_API_BASE_URL = `${API_BASE_URL}/admin`
 
 // Request deduplication: track in-flight requests
-const pendingRequests = new Map<string, Promise<any>>()
+const pendingRequests = new Map<string, Promise<AxiosResponse>>()
 
 // Response cache: cache GET requests for a short time
-const responseCache = new Map<string, { data: any; timestamp: number }>()
+const responseCache = new Map<string, { data: AxiosResponse; timestamp: number }>()
 const CACHE_TTL = 5000 // 5 seconds cache
 
 // Generate cache key from request config
-function getCacheKey(config: any): string {
+function getCacheKey(config: AxiosRequestConfig): string {
   const url = config.url || ''
   const params = config.params ? JSON.stringify(config.params) : ''
-  const method = config.method || 'get'
-  return `${method.toUpperCase()}:${url}:${params}`
+  const method = (config.method || 'get').toUpperCase()
+  return `${method}:${url}:${params}`
 }
 
 // Clear cache for related endpoints after mutations
@@ -44,35 +44,30 @@ const api = axios.create({
   withCredentials: true // Required for Sanctum SPA authentication
 })
 
-// Request interceptor: deduplicate requests and check cache
+// Request interceptor: add auth token and handle caching/deduplication
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('admin_token')
     if (token) {
+      config.headers = config.headers || {}
       config.headers['Authorization'] = `Bearer ${token}`
     }
 
-    // Only deduplicate GET requests
+    // Only deduplicate and cache GET requests
     if (config.method?.toLowerCase() === 'get') {
       const cacheKey = getCacheKey(config)
       
+      // Check cache first
+      const cached = responseCache.get(cacheKey)
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        // Return cached response by creating a resolved promise
+        return Promise.resolve(cached.data) as any
+      }
+
       // Check if request is already in-flight
       if (pendingRequests.has(cacheKey)) {
         // Return the existing promise
-        return Promise.reject({
-          __isDeduped: true,
-          promise: pendingRequests.get(cacheKey)
-        })
-      }
-
-      // Check cache
-      const cached = responseCache.get(cacheKey)
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        // Return cached response
-        return Promise.reject({
-          __isCached: true,
-          data: cached.data
-        })
+        return pendingRequests.get(cacheKey) as any
       }
 
       // Create new request and track it
@@ -92,6 +87,7 @@ api.interceptors.request.use(
         })
 
       pendingRequests.set(cacheKey, requestPromise)
+      return requestPromise as any
     } else {
       // For non-GET requests, clear related cache
       clearRelatedCache(config.method || 'get', config.url || '')
@@ -104,43 +100,18 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor: handle deduplication and cache
+// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle deduplicated requests
-    if (error.__isDeduped) {
-      return error.promise
-    }
-
-    // Handle cached responses
-    if (error.__isCached) {
-      return Promise.resolve(error.data)
-    }
-
     // Handle 401 errors
     if (error.response?.status === 401) {
       localStorage.removeItem('admin_token')
       localStorage.removeItem('admin_user')
       window.location.href = '/login'
     }
-
     return Promise.reject(error)
   }
 )
-
-// Wrapper to handle deduplication properly
-const originalGet = api.get.bind(api)
-api.get = function(url: string, config?: any) {
-  return originalGet(url, config).catch((error) => {
-    if (error.__isDeduped) {
-      return error.promise
-    }
-    if (error.__isCached) {
-      return Promise.resolve(error.data)
-    }
-    throw error
-  })
-}
 
 export default api
