@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\License;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Services\PayPalPaymentService;
 use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -15,10 +16,12 @@ use Illuminate\Support\Str;
 class PaymentController extends Controller
 {
     protected StripePaymentService $stripeService;
+    protected PayPalPaymentService $paypalService;
 
-    public function __construct(StripePaymentService $stripeService)
+    public function __construct(StripePaymentService $stripeService, PayPalPaymentService $paypalService)
     {
         $this->stripeService = $stripeService;
+        $this->paypalService = $paypalService;
     }
 
     public function index(Request $request)
@@ -61,6 +64,7 @@ class PaymentController extends Controller
             'max_activations' => ['nullable', 'integer', 'min:1', 'default:1'],
             'expires_at' => ['nullable', 'date'],
             'create_stripe_intent' => ['nullable', 'boolean'], // If true, create Stripe payment intent
+            'create_paypal_order' => ['nullable', 'boolean'], // If true, create PayPal order
         ]);
 
         $payment = Payment::create([
@@ -210,6 +214,55 @@ class PaymentController extends Controller
                                 'customer_id' => $payment->customer_id,
                                 'license_type' => $payload['data']['object']['metadata']['license_type'] ?? 'single_site',
                                 'max_activations' => (int) ($payload['data']['object']['metadata']['max_activations'] ?? 1),
+                                'status' => 'active',
+                                'purchased_at' => now(),
+                            ]);
+                            
+                            $payment->license_id = $license->id;
+                            $payment->save();
+                        }
+                    }
+                }
+            }
+            
+            return response()->json($result);
+        }
+
+        // Handle PayPal webhooks
+        if ($gateway === 'paypal') {
+            // Verify webhook signature in production
+            if (config('services.paypal.webhook_id')) {
+                $headers = $request->headers->all();
+                $payloadString = $request->getContent();
+                
+                if (!$this->paypalService->verifyWebhookSignature($payloadString, $headers)) {
+                    return response()->json(['error' => 'Invalid signature'], 401);
+                }
+            }
+
+            $result = $this->paypalService->handleWebhook($payload);
+            
+            // If payment succeeded and no license exists, create one
+            if ($result['status'] === 'success' && isset($result['payment'])) {
+                $payment = $result['payment'];
+                
+                if ($payment->status === 'completed' && !$payment->license_id && $payment->customer_id) {
+                    // Get product_id from payment - we need to store it in payment or retrieve from order
+                    // For now, we'll need to get it from the payment's initial creation
+                    // In a real scenario, you'd store product_id in the payment record
+                    $productId = $request->input('product_id');
+                    
+                    if ($productId) {
+                        $product = Product::find($productId);
+                        if ($product) {
+                            $licenseKeyGenerator = app(\App\Services\LicenseKeyGenerator::class);
+                            
+                            $license = License::create([
+                                'license_key' => $licenseKeyGenerator->generateForType($product),
+                                'product_id' => $productId,
+                                'customer_id' => $payment->customer_id,
+                                'license_type' => $request->input('license_type', 'single_site'),
+                                'max_activations' => (int) ($request->input('max_activations', 1)),
                                 'status' => 'active',
                                 'purchased_at' => now(),
                             ]);
