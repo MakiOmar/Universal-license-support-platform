@@ -9,6 +9,9 @@ export default defineNuxtConfig({
     '@nuxt/image',
     '@nuxt/scripts',
     '@nuxt/ui',
-    '@nuxt/test-utils'
-  ]
+    '@nuxt/test-utils',
+    '@pinia/nuxt'
+  ],
+
+  css: ['~/assets/css/main.css']
 })
