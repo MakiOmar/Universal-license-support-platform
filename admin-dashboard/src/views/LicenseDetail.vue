@@ -45,6 +45,84 @@
             <dd class="mt-1 text-sm">{{ formatDate(license.purchased_at) }}</dd>
           </div>
         </dl>
+
+        <div class="mt-6 pt-6 border-t">
+          <h4 class="text-md font-semibold mb-3">Renew License</h4>
+          <form @submit.prevent="handleRenew" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Renewal Period Value *</label>
+                <input
+                  v-model.number="renewalForm.period_value"
+                  type="number"
+                  min="1"
+                  required
+                  class="w-full px-3 py-2 border rounded-md"
+                  placeholder="e.g., 1"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Period Unit *</label>
+                <select
+                  v-model="renewalForm.period_unit"
+                  required
+                  class="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">Select unit</option>
+                  <option value="day">Day</option>
+                  <option value="days">Days</option>
+                  <option value="month">Month</option>
+                  <option value="months">Months</option>
+                  <option value="year">Year</option>
+                  <option value="years">Years</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Amount (Optional)</label>
+                <input
+                  v-model.number="renewalForm.amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 border rounded-md"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div class="flex items-center gap-4">
+              <label class="inline-flex items-center text-sm text-gray-700">
+                <input
+                  v-model="renewalForm.create_payment"
+                  type="checkbox"
+                  class="rounded border-gray-300 mr-2"
+                />
+                Create payment record
+              </label>
+              <select
+                v-if="renewalForm.create_payment"
+                v-model="renewalForm.payment_method"
+                class="px-3 py-2 border rounded-md text-sm"
+              >
+                <option value="manual">Manual</option>
+                <option value="stripe">Stripe</option>
+                <option value="paypal">PayPal</option>
+              </select>
+            </div>
+            <div v-if="renewalError" class="text-sm text-red-600">
+              {{ renewalError }}
+            </div>
+            <div class="flex justify-end">
+              <button
+                type="submit"
+                :disabled="renewing"
+                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                <span v-if="renewing">Renewing...</span>
+                <span v-else>Renew License</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div v-if="activations.length > 0" class="mt-6">
@@ -78,11 +156,24 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
+import { useAlerts } from '../utils/alerts'
 
 const route = useRoute()
 const license = ref<any>(null)
 const activations = ref([])
 const loading = ref(false)
+const renewing = ref(false)
+const renewalError = ref('')
+
+const { toastSuccess, toastError } = useAlerts()
+
+const renewalForm = ref({
+  period_value: 1,
+  period_unit: 'year',
+  amount: 0,
+  create_payment: false,
+  payment_method: 'manual'
+})
 
 function getStatusClass(status: string) {
   const classes: Record<string, string> = {
@@ -109,6 +200,57 @@ async function fetchLicense() {
     console.error('Failed to fetch license:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function handleRenew() {
+  if (!license.value) {
+    return
+  }
+
+  renewing.value = true
+  renewalError.value = ''
+
+  try {
+    const payload: any = {
+      renewal_period_value: renewalForm.value.period_value,
+      renewal_period_unit: renewalForm.value.period_unit
+    }
+
+    if (renewalForm.value.create_payment && renewalForm.value.amount > 0) {
+      payload.create_payment = true
+      payload.amount = renewalForm.value.amount
+      payload.payment_method = renewalForm.value.payment_method
+    }
+
+    const response = await api.post(
+      `${ADMIN_API_BASE_URL}/licenses/${route.params.id}/renew`,
+      payload
+    )
+
+    license.value = response.data.license || response.data.data || response.data
+    toastSuccess('License renewed successfully')
+    
+    // Reset form
+    renewalForm.value = {
+      period_value: 1,
+      period_unit: 'year',
+      amount: 0,
+      create_payment: false,
+      payment_method: 'manual'
+    }
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      renewalError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      renewalError.value = Object.values(errors).flat().join(', ')
+    } else {
+      renewalError.value = 'Failed to renew license. Please try again.'
+    }
+    toastError(renewalError.value || 'Failed to renew license. Please try again.')
+  } finally {
+    renewing.value = false
   }
 }
 
