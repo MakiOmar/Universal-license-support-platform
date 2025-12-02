@@ -52,6 +52,7 @@ Route::prefix('v1')->group(function () {
         Route::get('licenses/by-key/{license_key}/updates', [LicenseController::class, 'checkUpdates']);
         Route::apiResource('licenses', LicenseController::class);
         Route::post('licenses/{license}/transfer', [LicenseController::class, 'transfer']);
+        Route::post('licenses/{license}/renew', [LicenseController::class, 'renew']);
 
         // Support tickets
         Route::get('tickets', [TicketController::class, 'index']);
@@ -119,6 +120,7 @@ Route::prefix('v1')->group(function () {
         Route::get('licenses/by-key/{license_key}/updates', [LicenseController::class, 'checkUpdates']);
         Route::apiResource('licenses', LicenseController::class);
         Route::post('licenses/{license}/transfer', [LicenseController::class, 'transfer']);
+        Route::post('licenses/{license}/renew', [LicenseController::class, 'renew']);
 
         // Support tickets
         Route::get('tickets', [TicketController::class, 'index']);
