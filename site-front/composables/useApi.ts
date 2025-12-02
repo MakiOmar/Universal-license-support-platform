@@ -74,6 +74,8 @@ export const useApi = () => {
     post,
     put,
     delete: del,
+    API_BASE_URL,
+    CUSTOMER_API_BASE_URL,
   }
 }
 

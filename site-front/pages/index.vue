@@ -148,7 +148,7 @@ definePageMeta({
 
 const authStore = useAuthStore()
 const api = useApi()
-const { CUSTOMER_API_BASE_URL } = useApi()
+const { CUSTOMER_API_BASE_URL } = api
 
 const loading = ref(true)
 const stats = ref({
