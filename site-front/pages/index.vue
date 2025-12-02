@@ -143,7 +143,7 @@
 
 <script setup lang="ts">
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth' // Requires authentication
 })
 
 const authStore = useAuthStore()

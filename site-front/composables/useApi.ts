@@ -28,17 +28,31 @@ export const useApi = () => {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        message: response.statusText,
-      }))
+      let error: any = { message: response.statusText }
+      
+      try {
+        error = await response.json()
+      } catch {
+        // If response is not JSON, use status text
+        error = { message: response.statusText }
+      }
 
       if (response.status === 401) {
         // Unauthorized - clear auth and redirect to login
-        authStore.logout()
-        await navigateTo('/login')
+        // Only redirect if not already on login/register pages
+        if (process.client && !window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+          authStore.logout()
+          await navigateTo('/login')
+        }
       }
 
-      throw new Error(error.message || 'An error occurred')
+      // Extract error message from various response formats
+      const errorMessage = error.message || 
+                          error.error?.message || 
+                          (error.errors && Object.values(error.errors).flat().join(', ')) ||
+                          'An error occurred'
+      
+      throw new Error(errorMessage)
     }
 
     return response.json()
