@@ -12,6 +12,7 @@
             </div>
             <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
               <NuxtLink
+                v-if="authStore.isAuthenticated"
                 to="/"
                 class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 active-class="border-indigo-500 text-gray-900"
@@ -20,6 +21,15 @@
                 Dashboard
               </NuxtLink>
               <NuxtLink
+                to="/products"
+                class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                active-class="border-indigo-500 text-gray-900"
+                inactive-class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+              >
+                Products
+              </NuxtLink>
+              <NuxtLink
+                v-if="authStore.isAuthenticated"
                 to="/licenses"
                 class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 active-class="border-indigo-500 text-gray-900"
@@ -28,6 +38,7 @@
                 My Licenses
               </NuxtLink>
               <NuxtLink
+                v-if="authStore.isAuthenticated"
                 to="/tickets"
                 class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 active-class="border-indigo-500 text-gray-900"

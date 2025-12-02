@@ -10,12 +10,34 @@ use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
+    /**
+     * List products (public endpoint)
+     * Performance: Uses select() to limit columns, supports search filtering
+     */
     public function index(Request $request)
     {
         $perPage = min($request->get('per_page', 25), 100);
 
-        $products = Product::select('id', 'name', 'slug', 'description', 'type', 'version', 'status', 'created_at', 'updated_at')
-            ->paginate($perPage);
+        $query = Product::select('id', 'name', 'slug', 'description', 'type', 'version', 'status', 'created_at', 'updated_at')
+            ->where('status', 'active'); // Only show active products to public
+
+        // Search functionality
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('type', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by type if provided
+        if ($request->filled('type')) {
+            $query->where('type', $request->get('type'));
+        }
+
+        // Performance: Order by created_at (indexed column)
+        $products = $query->orderByDesc('created_at')->paginate($perPage);
 
         return ProductResource::collection($products);
     }
