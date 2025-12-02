@@ -18,14 +18,20 @@ export default defineVitestConfig({
       '@': rootDir,
       '~~': rootDir,
       '@@': rootDir,
-      // Resolve CSS imports to empty module
-      '~/assets/css/main.css': resolve(rootDir, 'assets/css/main.css'),
     },
   },
-  // Mock CSS and other asset imports
+  // Handle CSS and asset imports
+  assetsInclude: ['**/*.css'],
+  // Mock CSS imports
   server: {
     deps: {
       inline: ['@nuxt/test-utils'],
+    },
+  },
+  // Configure Vite to handle CSS
+  css: {
+    modules: {
+      localsConvention: 'camelCase',
     },
   },
 })
