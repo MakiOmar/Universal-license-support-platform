@@ -208,10 +208,9 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
               <router-link :to="`/tickets/${ticket.id}`" class="text-indigo-600 hover:text-indigo-900">View</router-link>
               <select
-                v-model="ticket.assigned_to"
-                @change="assignTicket(ticket, ticket.assigned_to)"
-                class="text-xs border rounded px-2 py-1"
                 :value="ticket.assigned_to || ''"
+                @change="assignTicket(ticket, $event.target.value ? parseInt($event.target.value) : null)"
+                class="text-xs border rounded px-2 py-1"
               >
                 <option value="">Assign...</option>
                 <option
