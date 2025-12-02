@@ -30,6 +30,12 @@ class StoreLicenseRequest extends FormRequest
             'max_activations' => ['nullable', 'integer', 'min:1', 'max:100'],
             'status' => ['nullable', 'string', Rule::in(['pending', 'active', 'expired', 'suspended', 'cancelled'])],
             'purchased_at' => ['nullable', 'date'],
+            // Period-based expiration (alternative to direct date)
+            'expires_period_value' => ['nullable', 'integer', 'min:1'],
+            'expires_period_unit' => ['nullable', 'string', Rule::in(['day', 'days', 'month', 'months', 'year', 'years'])],
+            'support_expires_period_value' => ['nullable', 'integer', 'min:1'],
+            'support_expires_period_unit' => ['nullable', 'string', Rule::in(['day', 'days', 'month', 'months', 'year', 'years'])],
+            // Direct date inputs (for editing existing licenses)
             'expires_at' => ['nullable', 'date', 'after_or_equal:purchased_at'],
             'support_expires_at' => ['nullable', 'date', 'after_or_equal:purchased_at'],
         ];

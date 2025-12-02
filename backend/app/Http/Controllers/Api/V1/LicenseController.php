@@ -11,6 +11,7 @@ use App\Services\CacheService;
 use App\Services\LicenseActivationService;
 use App\Services\LicenseKeyGenerator;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class LicenseController extends Controller
 {
@@ -52,7 +53,22 @@ class LicenseController extends Controller
         // Set defaults
         $data['status'] = $data['status'] ?? 'pending';
         $data['max_activations'] = $data['max_activations'] ?? 1;
-        $data['purchased_at'] = $data['purchased_at'] ?? now();
+        $purchasedAt = $data['purchased_at'] ?? now();
+        $purchasedDate = \Carbon\Carbon::parse($purchasedAt);
+        $data['purchased_at'] = $purchasedDate->format('Y-m-d H:i:s');
+
+        // Calculate expiration dates from periods if provided
+        if (! empty($data['expires_period_value']) && ! empty($data['expires_period_unit'])) {
+            $unit = rtrim($data['expires_period_unit'], 's'); // Normalize: days -> day, months -> month, etc.
+            $data['expires_at'] = $purchasedDate->copy()->add($data['expires_period_value'], $unit)->format('Y-m-d H:i:s');
+        }
+        unset($data['expires_period_value'], $data['expires_period_unit']);
+
+        if (! empty($data['support_expires_period_value']) && ! empty($data['support_expires_period_unit'])) {
+            $unit = rtrim($data['support_expires_period_unit'], 's');
+            $data['support_expires_at'] = $purchasedDate->copy()->add($data['support_expires_period_value'], $unit)->format('Y-m-d H:i:s');
+        }
+        unset($data['support_expires_period_value'], $data['support_expires_period_unit']);
 
         $license = License::create($data);
         $license->load(['product', 'customer']);
@@ -70,9 +86,31 @@ class LicenseController extends Controller
             'max_activations' => ['nullable', 'integer', 'min:1', 'max:100'],
             'status' => ['nullable', 'string', 'in:pending,active,expired,suspended,cancelled'],
             'purchased_at' => ['nullable', 'date'],
+            // Period-based expiration (alternative to direct date)
+            'expires_period_value' => ['nullable', 'integer', 'min:1'],
+            'expires_period_unit' => ['nullable', 'string', Rule::in(['day', 'days', 'month', 'months', 'year', 'years'])],
+            'support_expires_period_value' => ['nullable', 'integer', 'min:1'],
+            'support_expires_period_unit' => ['nullable', 'string', Rule::in(['day', 'days', 'month', 'months', 'year', 'years'])],
+            // Direct date inputs (for editing existing licenses)
             'expires_at' => ['nullable', 'date', 'after_or_equal:purchased_at'],
             'support_expires_at' => ['nullable', 'date', 'after_or_equal:purchased_at'],
         ]);
+
+        // Calculate expiration dates from periods if provided
+        $purchasedAt = $data['purchased_at'] ?? $license->purchased_at ?? now();
+        $purchasedDate = \Carbon\Carbon::parse($purchasedAt);
+
+        if (! empty($data['expires_period_value']) && ! empty($data['expires_period_unit'])) {
+            $unit = rtrim($data['expires_period_unit'], 's');
+            $data['expires_at'] = $purchasedDate->copy()->add($data['expires_period_value'], $unit)->format('Y-m-d H:i:s');
+        }
+        unset($data['expires_period_value'], $data['expires_period_unit']);
+
+        if (! empty($data['support_expires_period_value']) && ! empty($data['support_expires_period_unit'])) {
+            $unit = rtrim($data['support_expires_period_unit'], 's');
+            $data['support_expires_at'] = $purchasedDate->copy()->add($data['support_expires_period_value'], $unit)->format('Y-m-d H:i:s');
+        }
+        unset($data['support_expires_period_value'], $data['support_expires_period_unit']);
 
         $license->update($data);
         $license->load(['product', 'customer', 'activations']);

@@ -130,21 +130,49 @@
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Expires At</label>
-                <input
-                  v-model="form.expires_at"
-                  type="datetime-local"
-                  class="w-full px-3 py-2 border rounded-md"
-                />
+                <label class="block text-sm font-medium text-gray-700 mb-1">License Expiration Period</label>
+                <div class="flex gap-2">
+                  <input
+                    v-model.number="form.expires_period_value"
+                    type="number"
+                    min="1"
+                    placeholder="Number"
+                    class="w-24 px-3 py-2 border rounded-md"
+                  />
+                  <select
+                    v-model="form.expires_period_unit"
+                    class="flex-1 px-3 py-2 border rounded-md"
+                  >
+                    <option value="">Select unit</option>
+                    <option value="days">Days</option>
+                    <option value="months">Months</option>
+                    <option value="years">Years</option>
+                  </select>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Calculated from purchased date</p>
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Support Expires At</label>
-                <input
-                  v-model="form.support_expires_at"
-                  type="datetime-local"
-                  class="w-full px-3 py-2 border rounded-md"
-                />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Support Expiration Period</label>
+                <div class="flex gap-2">
+                  <input
+                    v-model.number="form.support_expires_period_value"
+                    type="number"
+                    min="1"
+                    placeholder="Number"
+                    class="w-24 px-3 py-2 border rounded-md"
+                  />
+                  <select
+                    v-model="form.support_expires_period_unit"
+                    class="flex-1 px-3 py-2 border rounded-md"
+                  >
+                    <option value="">Select unit</option>
+                    <option value="days">Days</option>
+                    <option value="months">Months</option>
+                    <option value="years">Years</option>
+                  </select>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Calculated from purchased date</p>
               </div>
             </div>
 
@@ -308,8 +336,10 @@ const form = ref({
   license_key: '',
   status: 'pending',
   purchased_at: '',
-  expires_at: '',
-  support_expires_at: ''
+  expires_period_value: null as number | null,
+  expires_period_unit: '' as string,
+  support_expires_period_value: null as number | null,
+  support_expires_period_unit: '' as string
 })
 
 const showTransferModal = ref(false)
@@ -389,8 +419,10 @@ function resetForm() {
     license_key: '',
     status: 'pending',
     purchased_at: '',
-    expires_at: '',
-    support_expires_at: ''
+    expires_period_value: null,
+    expires_period_unit: '',
+    support_expires_period_value: null,
+    support_expires_period_unit: ''
   }
   formError.value = ''
   editingLicense.value = null
@@ -401,8 +433,35 @@ function openCreateModal() {
   showFormModal.value = true
 }
 
+function calculatePeriodFromDates(purchasedDate: string | null, expiresDate: string | null): { value: number | null, unit: string } {
+  if (!purchasedDate || !expiresDate) {
+    return { value: null, unit: '' }
+  }
+
+  const purchased = new Date(purchasedDate)
+  const expires = new Date(expiresDate)
+  const diffMs = expires.getTime() - purchased.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 30) {
+    return { value: diffDays, unit: 'days' }
+  } else if (diffDays < 365) {
+    const months = Math.round(diffDays / 30)
+    return { value: months, unit: 'months' }
+  } else {
+    const years = Math.round(diffDays / 365)
+    return { value: years, unit: 'years' }
+  }
+}
+
 function openEditModal(license: any) {
   editingLicense.value = license
+  const purchasedAt = license.purchased_at ? String(license.purchased_at).slice(0, 16) : ''
+  
+  // Calculate periods from existing dates
+  const expiresPeriod = calculatePeriodFromDates(license.purchased_at, license.expires_at)
+  const supportExpiresPeriod = calculatePeriodFromDates(license.purchased_at, license.support_expires_at)
+
   form.value = {
     product_id: license.product_id,
     customer_id: license.customer_id,
@@ -410,9 +469,11 @@ function openEditModal(license: any) {
     max_activations: license.max_activations ?? null,
     license_key: license.license_key || '',
     status: license.status || 'pending',
-    purchased_at: license.purchased_at ? String(license.purchased_at).slice(0, 16) : '',
-    expires_at: license.expires_at ? String(license.expires_at).slice(0, 16) : '',
-    support_expires_at: license.support_expires_at ? String(license.support_expires_at).slice(0, 16) : ''
+    purchased_at: purchasedAt,
+    expires_period_value: expiresPeriod.value,
+    expires_period_unit: expiresPeriod.unit,
+    support_expires_period_value: supportExpiresPeriod.value,
+    support_expires_period_unit: supportExpiresPeriod.unit
   }
   formError.value = ''
   showFormModal.value = true
@@ -445,11 +506,16 @@ async function handleFormSubmit() {
   if (form.value.purchased_at) {
     payload.purchased_at = form.value.purchased_at
   }
-  if (form.value.expires_at) {
-    payload.expires_at = form.value.expires_at
+  
+  // Send period values if provided
+  if (form.value.expires_period_value && form.value.expires_period_unit) {
+    payload.expires_period_value = form.value.expires_period_value
+    payload.expires_period_unit = form.value.expires_period_unit
   }
-  if (form.value.support_expires_at) {
-    payload.support_expires_at = form.value.support_expires_at
+  
+  if (form.value.support_expires_period_value && form.value.support_expires_period_unit) {
+    payload.support_expires_period_value = form.value.support_expires_period_value
+    payload.support_expires_period_unit = form.value.support_expires_period_unit
   }
 
   try {
