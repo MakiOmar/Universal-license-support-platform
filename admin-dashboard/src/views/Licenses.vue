@@ -413,6 +413,20 @@ const transferCustomerId = ref<number | ''>('')
 
 const { toastSuccess, toastError, confirmAction } = useAlerts()
 
+// Bulk operations
+const selectedLicenses = ref<number[]>([])
+const showBulkStatusModal = ref(false)
+const showBulkTransferModal = ref(false)
+const showBulkRenewModal = ref(false)
+const bulkStatus = ref('')
+const bulkTransferCustomerId = ref<number | ''>('')
+const bulkRenewForm = ref({
+  period_value: 1,
+  period_unit: 'year'
+})
+const bulkProcessing = ref(false)
+const bulkError = ref('')
+
 // Selection management
 function isSelected(licenseId: number) {
   return selectedLicenses.value.includes(licenseId)
