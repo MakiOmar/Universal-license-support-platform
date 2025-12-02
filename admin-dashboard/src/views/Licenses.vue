@@ -889,10 +889,7 @@ const route = useRoute()
 watch(() => route.name, (newName) => {
   if (newName === 'Licenses') {
     fetchLicenses()
-    // Only fetch metadata if not already loaded
-    if (products.value.length === 0 || customers.value.length === 0) {
-      fetchMetadata()
-    }
+    // Don't fetch metadata here - it will be lazy-loaded when form is opened
   }
 }, { immediate: true })
 
