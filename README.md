@@ -395,9 +395,9 @@ ulsp/
   - [x] Reply to tickets
   - [x] Change ticket status/priority
   - [x] Close ticket functionality
-  - [ ] Assign tickets to admins
+  - [x] Assign tickets to admins (backend and UI)
   - [ ] File attachment support (backend ready, UI pending)
-  - [ ] Ticket assignment UI
+  - [x] Ticket assignment UI
 
 - [ ] **Customer Management**
   - [x] Create customer form
