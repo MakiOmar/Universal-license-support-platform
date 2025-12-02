@@ -402,7 +402,7 @@ ulsp/
   - [x] Change ticket status/priority
   - [x] Close ticket functionality
   - [x] Assign tickets to admins (backend and UI)
-  - [ ] File attachment support (backend ready, UI pending)
+  - [x] File attachment support (backend and UI complete)
   - [x] Ticket assignment UI
 
 - [ ] **Customer Management**
