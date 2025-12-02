@@ -235,8 +235,10 @@ ulsp/
   - Add replies with status/priority updates
   - Close ticket functionality
   - Assign tickets to admins (with UI in list and detail views)
+  - File attachment support (upload and display attachments in replies)
   - Quick status update actions (Mark In Progress, Mark Resolved)
   - Display assigned admin information
+  - Attachment download links with file size display
   - Replies display
 
 - ✅ **Customer Management**
@@ -690,7 +692,7 @@ For issues or questions, please refer to the wireframe documentation or create a
 - ✅ **Complete CRUD Operations**: Full create, edit, delete functionality for all entities
 - ✅ **SweetAlert2 Integration**: Consistent confirmation dialogs and toast notifications across admin dashboard and customer portal
 - ✅ **License Transfer**: Transfer licenses between customers
-- ✅ **Ticket Management**: Reply to tickets, update status/priority, close tickets, assign tickets to admins
+- ✅ **Ticket Management**: Reply to tickets, update status/priority, close tickets, assign tickets to admins, file attachments
 - ✅ **Error Handling**: Fixed null date errors in all API resources
 - ✅ **Route Optimization**: Fixed route order for import/export endpoints
 - ✅ **Stripe Payment Integration**: Payment intents, webhook handling, automatic license creation
