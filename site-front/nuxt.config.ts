@@ -13,5 +13,14 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
 
-  css: ['./assets/css/main.css']
+  css: ['~/assets/css/main.css'],
+
+  vite: {
+    resolve: {
+      alias: {
+        '~': new URL('.', import.meta.url).pathname,
+        '@': new URL('.', import.meta.url).pathname,
+      },
+    },
+  },
 })
