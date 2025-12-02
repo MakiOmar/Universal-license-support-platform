@@ -247,6 +247,80 @@ class LicenseController extends Controller
             'update_url' => $hasUpdate ? config('app.url') . '/downloads/' . $product->slug : null,
         ]);
     }
+
+    /**
+     * Renew a license by extending its expiration date
+     */
+    public function renew(Request $request, License $license)
+    {
+        $data = $request->validate([
+            'renewal_period_value' => ['required', 'integer', 'min:1'],
+            'renewal_period_unit' => ['required', 'string', Rule::in(['day', 'days', 'month', 'months', 'year', 'years'])],
+            'amount' => ['nullable', 'numeric', 'min:0'],
+            'payment_method' => ['nullable', 'string', 'in:stripe,paypal,manual'],
+            'create_payment' => ['nullable', 'boolean'],
+        ]);
+
+        // Calculate new expiration date
+        $currentExpiresAt = $license->expires_at ?? now();
+        $expiresAt = \Carbon\Carbon::parse($currentExpiresAt);
+        
+        // If license is already expired, start from now, otherwise extend from current expiration
+        if ($expiresAt->isPast()) {
+            $expiresAt = now();
+        }
+
+        $unit = rtrim($data['renewal_period_unit'], 's');
+        $newExpiresAt = $expiresAt->copy()->add($data['renewal_period_value'], $unit);
+
+        // Update license expiration
+        $license->expires_at = $newExpiresAt;
+        
+        // If license was expired, reactivate it
+        if ($license->status === 'expired') {
+            $license->status = 'active';
+        }
+        
+        $license->save();
+        $license->load(['product', 'customer']);
+
+        // Create payment record if requested
+        $payment = null;
+        if ($request->input('create_payment') && isset($data['amount']) && $data['amount'] > 0) {
+            $payment = \App\Models\Payment::create([
+                'customer_id' => $license->customer_id,
+                'license_id' => $license->id,
+                'amount' => $data['amount'],
+                'currency' => 'USD',
+                'payment_method' => $data['payment_method'] ?? 'manual',
+                'status' => 'completed',
+                'paid_at' => now(),
+            ]);
+
+            // Send payment confirmation email
+            if ($license->customer && $license->customer->email) {
+                \App\Jobs\SendEmailJob::dispatch(
+                    new \App\Mail\PaymentConfirmationMail($payment),
+                    $license->customer->email
+                );
+            }
+        }
+
+        // Send renewal confirmation email
+        if ($license->customer && $license->customer->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\LicenseRenewedMail($license, $data['renewal_period_value'], $data['renewal_period_unit']),
+                $license->customer->email
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'License renewed successfully',
+            'license' => new LicenseResource($license),
+            'payment' => $payment,
+        ]);
+    }
 }
 
 
