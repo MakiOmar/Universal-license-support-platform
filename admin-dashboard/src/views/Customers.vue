@@ -7,12 +7,101 @@
         placeholder="Search customers..."
         class="px-4 py-2 border rounded-md w-full max-w-md"
       />
-      <button
-        @click="openCreateModal"
-        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-      >
-        Create Customer
-      </button>
+      <div class="flex gap-2">
+        <button
+          @click="handleExport"
+          :disabled="exporting"
+          class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+        >
+          <span v-if="exporting">Exporting...</span>
+          <span v-else>Export CSV</span>
+        </button>
+        <button
+          @click="showImportModal = true"
+          class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Import CSV
+        </button>
+        <button
+          @click="openCreateModal"
+          class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        >
+          Create Customer
+        </button>
+      </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div
+      v-if="showImportModal"
+      class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+      @click.self="closeImportModal"
+    >
+      <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Import Customers from CSV</h3>
+          <p class="text-sm text-gray-600 mb-4">
+            Upload a CSV file with customer data. Required columns: <strong>email</strong>. 
+            Optional columns: first_name, last_name, company, phone, status.
+          </p>
+          <form @submit.prevent="handleImport">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">CSV File</label>
+              <input
+                ref="fileInput"
+                type="file"
+                accept=".csv,.txt"
+                @change="handleFileSelect"
+                required
+                class="w-full px-3 py-2 border rounded-md"
+              />
+              <p class="text-xs text-gray-500 mt-1">Maximum file size: 10MB</p>
+            </div>
+
+            <div v-if="importError" class="mb-4 text-red-600 text-sm">
+              {{ importError }}
+            </div>
+
+            <div v-if="importResult" class="mb-4 p-3 bg-gray-50 rounded-md">
+              <p class="text-sm font-medium mb-2">Import Results:</p>
+              <ul class="text-sm space-y-1">
+                <li class="text-green-600">✓ Imported: {{ importResult.imported }}</li>
+                <li class="text-yellow-600">⚠ Skipped: {{ importResult.skipped }}</li>
+                <li v-if="importResult.errors && importResult.errors.length > 0" class="text-red-600">
+                  ✗ Errors: {{ importResult.errors.length }}
+                </li>
+              </ul>
+              <div v-if="importResult.errors && importResult.errors.length > 0" class="mt-2 max-h-32 overflow-y-auto">
+                <p class="text-xs font-medium mb-1">Error Details:</p>
+                <ul class="text-xs text-red-600 space-y-1">
+                  <li v-for="(err, idx) in importResult.errors.slice(0, 10)" :key="idx">{{ err }}</li>
+                  <li v-if="importResult.errors.length > 10" class="text-gray-500">
+                    ... and {{ importResult.errors.length - 10 }} more errors
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                @click="closeImportModal"
+                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                Close
+              </button>
+              <button
+                type="submit"
+                :disabled="importing"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                <span v-if="importing">Importing...</span>
+                <span v-else>Start Import</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
 
     <!-- Create / Edit Customer Modal -->
@@ -174,6 +263,15 @@ const saving = ref(false)
 const error = ref('')
 const editingCustomer = ref<any | null>(null)
 
+// Import/Export state
+const showImportModal = ref(false)
+const importing = ref(false)
+const exporting = ref(false)
+const importError = ref('')
+const importResult = ref<any>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const selectedFile = ref<File | null>(null)
+
 const { toastSuccess, toastError, confirmAction } = useAlerts()
 
 const form = ref({
@@ -323,6 +421,111 @@ async function handleDelete(customer: any) {
     toastSuccess('Customer deleted successfully')
   } catch (err: any) {
     toastError('Failed to delete customer. Please try again.')
+  }
+}
+
+function handleFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    selectedFile.value = target.files[0]
+    importError.value = ''
+  }
+}
+
+function closeImportModal() {
+  if (importing.value) {
+    return
+  }
+  showImportModal.value = false
+  importError.value = ''
+  importResult.value = null
+  selectedFile.value = null
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+
+async function handleImport() {
+  if (!selectedFile.value) {
+    importError.value = 'Please select a file'
+    return
+  }
+
+  importing.value = true
+  importError.value = ''
+  importResult.value = null
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+
+    const response = await api.post(`${ADMIN_API_BASE_URL}/customers/import`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    toastSuccess('Import job queued successfully. Processing in background...')
+    
+    // Poll for import status
+    setTimeout(async () => {
+      await checkImportStatus()
+    }, 2000)
+  } catch (err: any) {
+    if (err.response?.data?.message) {
+      importError.value = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      importError.value = Object.values(errors).flat().join(', ')
+    } else {
+      importError.value = 'Failed to upload file. Please try again.'
+    }
+    toastError(importError.value || 'Failed to upload file. Please try again.')
+  } finally {
+    importing.value = false
+  }
+}
+
+async function checkImportStatus() {
+  try {
+    const response = await api.get(`${ADMIN_API_BASE_URL}/customers/import/status`)
+    if (response.data.status === 'completed' && response.data.result) {
+      importResult.value = response.data.result
+      if (importResult.value.imported > 0) {
+        toastSuccess(`Import completed: ${importResult.value.imported} customers imported`)
+        // Refresh customer list
+        await fetchCustomers()
+      }
+    }
+  } catch (err: any) {
+    // Import might still be processing
+    console.log('Import still processing or not found')
+  }
+}
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    const response = await api.get(`${ADMIN_API_BASE_URL}/customers/export`, {
+      responseType: 'blob'
+    })
+
+    // Create blob and download
+    const blob = new Blob([response.data], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `customers_export_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+
+    toastSuccess('Customers exported successfully')
+  } catch (err: any) {
+    toastError('Failed to export customers. Please try again.')
+  } finally {
+    exporting.value = false
   }
 }
 

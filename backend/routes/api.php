@@ -39,6 +39,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('customers', CustomerController::class);
         Route::get('customers/{customer}/licenses', [CustomerController::class, 'getLicenses']);
         Route::get('customers/{customer}/tickets', [CustomerController::class, 'getTickets']);
+        Route::post('customers/import', [CustomerController::class, 'import']);
+        Route::get('customers/export', [CustomerController::class, 'export']);
+        Route::get('customers/import/status', [CustomerController::class, 'importStatus']);
 
         // Licenses
         Route::get('licenses/validate', [LicenseController::class, 'validateKey']);
