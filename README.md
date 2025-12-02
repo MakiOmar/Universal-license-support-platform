@@ -339,10 +339,10 @@ ulsp/
   - [ ] Payment integration (pending)
 
 #### 2. Backend Enhancements
-- [ ] **Payment Integration**
-  - [ ] Stripe integration
+- [x] **Payment Integration**
+  - [x] Stripe integration (payment intents, webhook handling, signature verification)
   - [ ] PayPal integration
-  - [ ] Payment webhook handlers
+  - [x] Payment webhook handlers (Stripe implemented, generic handler for others)
   - [ ] Subscription management
 
 - [x] **Email Notifications**
