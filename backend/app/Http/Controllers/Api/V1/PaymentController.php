@@ -82,9 +82,18 @@ class PaymentController extends Controller
             $payment->save();
 
             $license->load(['product', 'customer']);
+            $payment->load(['customer', 'license']);
+
+            // Send payment confirmation email via queue
+            if ($payment->customer && $payment->customer->email) {
+                \App\Jobs\SendEmailJob::dispatch(
+                    new \App\Mail\PaymentConfirmationMail($payment),
+                    $payment->customer->email
+                );
+            }
 
             return response()->json([
-                'payment' => $payment->load(['customer', 'license']),
+                'payment' => $payment,
                 'license' => new LicenseResource($license),
             ], 201);
         }
@@ -101,8 +110,17 @@ class PaymentController extends Controller
         ]);
 
         $payment->update($data);
+        $payment->load(['customer', 'license']);
 
-        return response()->json($payment->load(['customer', 'license']));
+        // Send payment confirmation email if status changed to completed
+        if (isset($data['status']) && $data['status'] === 'completed' && $payment->customer && $payment->customer->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\PaymentConfirmationMail($payment),
+                $payment->customer->email
+            );
+        }
+
+        return response()->json($payment);
     }
 
     public function webhook(Request $request, string $gateway)
@@ -139,6 +157,15 @@ class PaymentController extends Controller
             $payment->paid_at = now();
         }
         $payment->save();
+        $payment->load(['customer', 'license']);
+
+        // Send payment confirmation email if payment completed
+        if ($status === 'completed' && $payment->customer && $payment->customer->email) {
+            \App\Jobs\SendEmailJob::dispatch(
+                new \App\Mail\PaymentConfirmationMail($payment),
+                $payment->customer->email
+            );
+        }
 
         // If payment completed and no license exists, create one
         if ($status === 'completed' && ! $payment->license_id && $payment->customer_id) {
