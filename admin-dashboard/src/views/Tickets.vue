@@ -229,6 +229,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
+import { useAlerts } from '../utils/alerts'
 
 const tickets = ref([])
 const loading = ref(false)
@@ -253,6 +254,8 @@ const form = ref({
   priority: 'medium',
   category: ''
 })
+
+const { toastSuccess, toastError } = useAlerts()
 
 const filteredTickets = computed(() => {
   let filtered = tickets.value
@@ -379,6 +382,7 @@ async function handleCreate() {
     const created = response.data.data || response.data
     tickets.value.unshift(created)
     showCreateModal.value = false
+    toastSuccess('Ticket created successfully')
   } catch (err: any) {
     if (err.response?.data?.message) {
       error.value = err.response.data.message
@@ -388,6 +392,7 @@ async function handleCreate() {
     } else {
       error.value = 'Failed to create ticket. Please try again.'
     }
+    toastError(error.value || 'Failed to create ticket. Please try again.')
   } finally {
     creating.value = false
   }
@@ -401,9 +406,11 @@ async function quickUpdateStatus(ticket: any, status: string) {
     const response = await api.put(`${ADMIN_API_BASE_URL}/tickets/${ticket.id}`, { status })
     const updated = response.data.data || response.data
     tickets.value = tickets.value.map((t: any) => (t.id === updated.id ? updated : t))
+    toastSuccess('Ticket status updated')
   } catch (err) {
     console.error('Failed to update ticket status:', err)
     ticket.status = originalStatus
+    toastError('Failed to update ticket status. Please try again.')
   }
 }
 

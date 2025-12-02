@@ -285,6 +285,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
+import { useAlerts } from '../utils/alerts'
 
 const licenses = ref([])
 const loading = ref(false)
@@ -316,6 +317,8 @@ const transferSaving = ref(false)
 const transferError = ref('')
 const transferLicense = ref<any | null>(null)
 const transferCustomerId = ref<number | ''>('')
+
+const { toastSuccess, toastError, confirmAction } = useAlerts()
 
 const filteredLicenses = computed(() => {
   let filtered = licenses.value
@@ -457,10 +460,12 @@ async function handleFormSubmit() {
       )
       const updated = response.data.data || response.data
       licenses.value = licenses.value.map((l: any) => (l.id === updated.id ? updated : l))
+      toastSuccess('License updated successfully')
     } else {
       const response = await api.post(`${ADMIN_API_BASE_URL}/licenses`, payload)
       const created = response.data.data || response.data
       licenses.value.unshift(created)
+      toastSuccess('License created successfully')
     }
 
     showFormModal.value = false
@@ -473,6 +478,7 @@ async function handleFormSubmit() {
     } else {
       formError.value = 'Failed to save license. Please try again.'
     }
+    toastError(formError.value || 'Failed to save license. Please try again.')
   } finally {
     formSaving.value = false
   }
@@ -512,6 +518,7 @@ async function handleTransferSubmit() {
     }
 
     showTransferModal.value = false
+    toastSuccess('License transferred successfully')
   } catch (err: any) {
     if (err.response?.data?.message) {
       transferError.value = err.response.data.message
@@ -521,6 +528,7 @@ async function handleTransferSubmit() {
     } else {
       transferError.value = 'Failed to transfer license. Please try again.'
     }
+    toastError(transferError.value || 'Failed to transfer license. Please try again.')
   } finally {
     transferSaving.value = false
   }

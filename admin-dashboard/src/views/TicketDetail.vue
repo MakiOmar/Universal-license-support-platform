@@ -134,6 +134,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
 import { useAuthStore } from '../stores/auth'
+import { useAlerts } from '../utils/alerts'
 
 const route = useRoute()
 const ticket = ref<any>(null)
@@ -144,6 +145,7 @@ const closeSaving = ref(false)
 const replyError = ref('')
 
 const authStore = useAuthStore()
+const { toastSuccess, toastError, confirmAction } = useAlerts()
 
 const replyForm = ref({
   message: '',
@@ -232,6 +234,7 @@ async function handleReplySubmit() {
 
     replyForm.value.message = ''
     replyForm.value.is_internal = false
+    toastSuccess('Reply added successfully')
   } catch (err: any) {
     if (err.response?.data?.message) {
       replyError.value = err.response.data.message
@@ -241,6 +244,7 @@ async function handleReplySubmit() {
     } else {
       replyError.value = 'Failed to send reply. Please try again.'
     }
+    toastError(replyError.value || 'Failed to send reply. Please try again.')
   } finally {
     replySaving.value = false
   }
@@ -248,6 +252,15 @@ async function handleReplySubmit() {
 
 async function handleCloseTicket() {
   if (!ticket.value || ticket.value.status === 'closed') {
+    return
+  }
+
+  const confirmed = await confirmAction(
+    'Close ticket?',
+    'This will mark the ticket as closed.'
+  )
+
+  if (!confirmed) {
     return
   }
 
@@ -263,6 +276,7 @@ async function handleCloseTicket() {
     } else {
       replyError.value = 'Failed to close ticket. Please try again.'
     }
+    toastError(replyError.value || 'Failed to close ticket. Please try again.')
   } finally {
     closeSaving.value = false
   }

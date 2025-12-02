@@ -164,6 +164,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
+import { useAlerts } from '../utils/alerts'
 
 const customers = ref([])
 const loading = ref(false)
@@ -172,6 +173,8 @@ const showModal = ref(false)
 const saving = ref(false)
 const error = ref('')
 const editingCustomer = ref<any | null>(null)
+
+const { toastSuccess, toastError, confirmAction } = useAlerts()
 
 const form = ref({
   email: '',
@@ -280,10 +283,12 @@ async function handleSubmit() {
       customers.value = customers.value.map((c: any) =>
         c.id === updated.id ? updated : c
       )
+      toastSuccess('Customer updated successfully')
     } else {
       const response = await api.post(`${ADMIN_API_BASE_URL}/customers`, form.value)
       const created = response.data.data || response.data
       customers.value.unshift(created)
+      toastSuccess('Customer created successfully')
     }
 
     showModal.value = false
@@ -296,21 +301,28 @@ async function handleSubmit() {
     } else {
       error.value = 'Failed to save customer. Please try again.'
     }
+    toastError(error.value || 'Failed to save customer. Please try again.')
   } finally {
     saving.value = false
   }
 }
 
 async function handleDelete(customer: any) {
-  if (!confirm(`Are you sure you want to delete "${customer.email}"?`)) {
+  const confirmed = await confirmAction(
+    'Delete customer?',
+    `This will permanently delete ${customer.email}.`
+  )
+
+  if (!confirmed) {
     return
   }
 
   try {
     await api.delete(`${ADMIN_API_BASE_URL}/customers/${customer.id}`)
     customers.value = customers.value.filter((c: any) => c.id !== customer.id)
+    toastSuccess('Customer deleted successfully')
   } catch (err: any) {
-    alert('Failed to delete customer. Please try again.')
+    toastError('Failed to delete customer. Please try again.')
   }
 }
 

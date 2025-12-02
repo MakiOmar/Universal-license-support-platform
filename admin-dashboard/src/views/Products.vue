@@ -162,6 +162,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import api, { ADMIN_API_BASE_URL } from '../services/api'
+import { useAlerts } from '../utils/alerts'
 
 const products = ref([])
 const loading = ref(false)
@@ -169,6 +170,7 @@ const searchQuery = ref('')
 const showCreateModal = ref(false)
 const creating = ref(false)
 const error = ref('')
+const { confirmAction, toastSuccess, toastError } = useAlerts()
 const editingProduct = ref<any | null>(null)
 
 const form = ref({
@@ -242,10 +244,12 @@ async function handleCreate() {
       )
       const updated = response.data.data || response.data
       products.value = products.value.map((p: any) => (p.id === updated.id ? updated : p))
+      toastSuccess('Product updated successfully')
     } else {
       const response = await api.post(`${ADMIN_API_BASE_URL}/products`, form.value)
       const created = response.data.data || response.data
       products.value.unshift(created)
+      toastSuccess('Product created successfully')
     }
 
     form.value = {
@@ -267,21 +271,28 @@ async function handleCreate() {
     } else {
       error.value = 'Failed to create product. Please try again.'
     }
+    toastError(error.value || 'Failed to save product. Please try again.')
   } finally {
     creating.value = false
   }
 }
 
 async function handleDelete(product: any) {
-  if (!confirm(`Are you sure you want to delete "${product.name}"?`)) {
+  const confirmed = await confirmAction(
+    'Delete product?',
+    `This will permanently delete "${product.name}".`
+  )
+
+  if (!confirmed) {
     return
   }
   
   try {
     await api.delete(`${ADMIN_API_BASE_URL}/products/${product.id}`)
     products.value = products.value.filter((p: any) => p.id !== product.id)
+    toastSuccess('Product deleted successfully')
   } catch (err: any) {
-    alert('Failed to delete product. Please try again.')
+    toastError('Failed to delete product. Please try again.')
   }
 }
 
