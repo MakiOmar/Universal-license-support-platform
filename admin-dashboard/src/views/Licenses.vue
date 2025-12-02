@@ -891,7 +891,7 @@ watch(() => route.name, (newName) => {
     fetchLicenses()
     // Don't fetch metadata here - it will be lazy-loaded when form is opened
   }
-}, { immediate: true })
+})
 
 onMounted(() => {
   fetchLicenses()
