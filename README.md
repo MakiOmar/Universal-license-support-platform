@@ -126,6 +126,7 @@ ulsp/
   - LicenseKeyGenerator (product-type specific key generation)
   - LicenseActivationService (activation/deactivation logic)
   - CacheService (caching for performance)
+  - StripePaymentService (Stripe payment integration)
   - Queue-based background processing (customer import, email sending)
   - Period-based date calculation (license expiration)
   - Customer authentication middleware (token validation)
@@ -134,11 +135,26 @@ ulsp/
   - Queue-based email sending (SendEmailJob)
   - HTML email templates (Blade)
   - License activation notifications
+  - License expiration warnings (scheduled at 30, 7, and 1 days before expiration)
   - Ticket creation/update notifications
   - Password reset emails
   - Payment confirmation emails
+  - Import completion notifications
   - Retry mechanism with exponential backoff
   - Error logging for failed emails
+
+- ✅ **Payment Integration**
+  - Stripe payment integration (payment intents, webhook handling)
+  - Payment intent creation with metadata
+  - Webhook signature verification
+  - Automatic license creation on successful payment
+  - Payment confirmation emails
+  - Generic webhook handler for other payment gateways
+
+- ✅ **Scheduled Tasks**
+  - License expiration notification checks (daily at 9 AM)
+  - Configurable notification windows (30, 7, 1 days)
+  - Duplicate notification prevention via cache
 
 - ✅ **Validation & Resources**
   - Form Request validation classes
@@ -663,9 +679,15 @@ For issues or questions, please refer to the wireframe documentation or create a
 - ✅ **Customer Import/Export**: CSV import with queue-based processing and export functionality
 - ✅ **Period-Based License Expiration**: Set expiration using number + unit (days/months/years) calculated from purchased date
 - ✅ **Complete CRUD Operations**: Full create, edit, delete functionality for all entities
-- ✅ **SweetAlert2 Integration**: Consistent confirmation dialogs and toast notifications across admin dashboard
+- ✅ **SweetAlert2 Integration**: Consistent confirmation dialogs and toast notifications across admin dashboard and customer portal
 - ✅ **License Transfer**: Transfer licenses between customers
 - ✅ **Ticket Management**: Reply to tickets, update status/priority, close tickets
 - ✅ **Error Handling**: Fixed null date errors in all API resources
 - ✅ **Route Optimization**: Fixed route order for import/export endpoints
+- ✅ **Stripe Payment Integration**: Payment intents, webhook handling, automatic license creation
+- ✅ **API Key Management**: Full CRUD with admin dashboard UI, secret regeneration, expiration tracking
+- ✅ **License Expiration Notifications**: Scheduled daily checks with email notifications
+- ✅ **Import Completion Notifications**: Email notifications sent to admins when imports complete
+- ✅ **Customer Portal**: Complete Nuxt.js customer portal with authentication, dashboard, licenses, tickets, and profile pages
+- ✅ **Product Pages**: Public product listing and detail pages with search functionality
 
