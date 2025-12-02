@@ -387,6 +387,14 @@ ulsp/
   - [ ] Customer activity log
   - [ ] Bulk customer operations
 
+- [x] **API Key Management**
+  - [x] List API keys with search and filters
+  - [x] Create API keys (with customer and product association)
+  - [x] Edit API keys (rate limit, status, expiration)
+  - [x] Regenerate API secrets
+  - [x] Delete API keys
+  - [x] View API key details (last used, expiration)
+
 - [ ] **Analytics & Reports**
   - [ ] Revenue charts
   - [ ] License statistics

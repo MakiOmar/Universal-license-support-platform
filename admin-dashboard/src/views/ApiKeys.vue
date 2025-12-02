@@ -238,7 +238,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
-import { confirmAction, toastSuccess, toastError } from '@/utils/alerts'
+import { confirmAction, toastSuccess, toastError } from '../utils/alerts'
 
 const router = useRouter()
 
