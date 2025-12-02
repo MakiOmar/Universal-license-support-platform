@@ -31,6 +31,23 @@
             <span class="text-sm font-medium text-gray-500">Created: </span>
             <span class="text-sm">{{ formatDate(ticket.created_at) }}</span>
           </div>
+          <div>
+            <span class="text-sm font-medium text-gray-500">Assigned To: </span>
+            <select
+              v-model="assignedAdminId"
+              @change="handleAssignTicket"
+              class="text-sm border rounded px-2 py-1 ml-2"
+            >
+              <option :value="null">Unassigned</option>
+              <option
+                v-for="admin in admins"
+                :key="admin.id"
+                :value="admin.id"
+              >
+                {{ admin.name }}
+              </option>
+            </select>
+          </div>
         </div>
         <div class="border-t pt-4">
           <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ ticket.description }}</p>
@@ -143,6 +160,9 @@ const loading = ref(false)
 const replySaving = ref(false)
 const closeSaving = ref(false)
 const replyError = ref('')
+const admins = ref<any[]>([])
+const assignedAdminId = ref<number | null>(null)
+const assigning = ref(false)
 
 const authStore = useAuthStore()
 const { toastSuccess, toastError, confirmAction } = useAlerts()
@@ -185,10 +205,47 @@ async function fetchTicket() {
     const response = await api.get(`${ADMIN_API_BASE_URL}/tickets/${route.params.id}`)
     ticket.value = response.data.data || response.data
     replies.value = ticket.value.replies || []
+    assignedAdminId.value = ticket.value.assigned_to || null
   } catch (error) {
     console.error('Failed to fetch ticket:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchAdmins() {
+  try {
+    const response = await api.get(`${ADMIN_API_BASE_URL}/admins`)
+    admins.value = response.data || []
+  } catch (error) {
+    console.error('Failed to fetch admins:', error)
+  }
+}
+
+async function handleAssignTicket() {
+  if (!ticket.value) {
+    return
+  }
+
+  assigning.value = true
+  const originalAssignedTo = ticket.value.assigned_to
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/tickets/${route.params.id}/assign`, {
+      assigned_to: assignedAdminId.value
+    })
+    ticket.value = response.data.data || response.data
+    toastSuccess(assignedAdminId.value ? 'Ticket assigned successfully' : 'Ticket unassigned successfully')
+  } catch (err: any) {
+    assignedAdminId.value = originalAssignedTo
+    if (err.response?.data?.message) {
+      replyError.value = err.response.data.message
+    } else {
+      replyError.value = 'Failed to assign ticket. Please try again.'
+    }
+    toastError(replyError.value || 'Failed to assign ticket. Please try again.')
+  } finally {
+    assigning.value = false
   }
 }
 
@@ -284,6 +341,7 @@ async function handleCloseTicket() {
 
 onMounted(() => {
   fetchTicket()
+  fetchAdmins()
 })
 </script>
 

@@ -180,6 +180,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
           </tr>
@@ -199,9 +200,28 @@
                 {{ ticket.status }}
               </span>
             </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <span v-if="ticket.assigned_admin">{{ ticket.assigned_admin.name }}</span>
+              <span v-else class="text-gray-400">Unassigned</span>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ formatDate(ticket.created_at) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
               <router-link :to="`/tickets/${ticket.id}`" class="text-indigo-600 hover:text-indigo-900">View</router-link>
+              <select
+                v-model="ticket.assigned_to"
+                @change="assignTicket(ticket, ticket.assigned_to)"
+                class="text-xs border rounded px-2 py-1"
+                :value="ticket.assigned_to || ''"
+              >
+                <option value="">Assign...</option>
+                <option
+                  v-for="admin in admins"
+                  :key="admin.id"
+                  :value="admin.id"
+                >
+                  {{ admin.name }}
+                </option>
+              </select>
               <button
                 type="button"
                 @click="quickUpdateStatus(ticket, 'in_progress')"
@@ -244,6 +264,7 @@ const error = ref('')
 const customers = ref<any[]>([])
 const products = ref<any[]>([])
 const licenses = ref<any[]>([])
+const admins = ref<any[]>([])
 
 const form = ref({
   customer_id: '' as number | '',
@@ -319,17 +340,37 @@ async function fetchTickets() {
 
 async function fetchMetadata() {
   try {
-    const [customersRes, productsRes, licensesRes] = await Promise.all([
+    const [customersRes, productsRes, licensesRes, adminsRes] = await Promise.all([
       api.get(`${ADMIN_API_BASE_URL}/customers`, { params: { per_page: 100 } }),
       api.get(`${ADMIN_API_BASE_URL}/products`, { params: { per_page: 100 } }),
-      api.get(`${ADMIN_API_BASE_URL}/licenses`, { params: { per_page: 100 } })
+      api.get(`${ADMIN_API_BASE_URL}/licenses`, { params: { per_page: 100 } }),
+      api.get(`${ADMIN_API_BASE_URL}/admins`)
     ])
 
     customers.value = customersRes.data.data || customersRes.data
     products.value = productsRes.data.data || productsRes.data
     licenses.value = licensesRes.data.data || licensesRes.data
+    admins.value = adminsRes.data || []
   } catch (e) {
     console.error('Failed to fetch ticket metadata:', e)
+  }
+}
+
+async function assignTicket(ticket: any, adminId: number | null) {
+  const originalAssignedTo = ticket.assigned_to
+  ticket.assigned_to = adminId
+
+  try {
+    const response = await api.post(`${ADMIN_API_BASE_URL}/tickets/${ticket.id}/assign`, {
+      assigned_to: adminId || null
+    })
+    const updated = response.data.data || response.data
+    tickets.value = tickets.value.map((t: any) => (t.id === updated.id ? updated : t))
+    toastSuccess(adminId ? 'Ticket assigned successfully' : 'Ticket unassigned successfully')
+  } catch (err) {
+    console.error('Failed to assign ticket:', err)
+    ticket.assigned_to = originalAssignedTo
+    toastError('Failed to assign ticket. Please try again.')
   }
 }
 
