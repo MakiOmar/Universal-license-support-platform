@@ -38,6 +38,11 @@ class Customer extends Model
     {
         return $this->hasMany(ApiKey::class);
     }
+
+    public function activities()
+    {
+        return $this->hasMany(CustomerActivity::class)->orderByDesc('created_at');
+    }
 }
 
 

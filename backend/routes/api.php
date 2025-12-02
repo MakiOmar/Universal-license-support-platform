@@ -43,6 +43,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('customers', CustomerController::class);
         Route::get('customers/{customer}/licenses', [CustomerController::class, 'getLicenses']);
         Route::get('customers/{customer}/tickets', [CustomerController::class, 'getTickets']);
+        Route::get('customers/{customer}/activities', [CustomerController::class, 'getActivities']);
 
         // Licenses
         Route::get('licenses/validate', [LicenseController::class, 'validateKey']);
@@ -112,6 +113,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('customers', CustomerController::class);
         Route::get('customers/{customer}/licenses', [CustomerController::class, 'getLicenses']);
         Route::get('customers/{customer}/tickets', [CustomerController::class, 'getTickets']);
+        Route::get('customers/{customer}/activities', [CustomerController::class, 'getActivities']);
 
         // Licenses - specific routes must come before resource routes
         Route::get('licenses/validate', [LicenseController::class, 'validateKey']);

@@ -162,6 +162,22 @@ class LicenseController extends Controller
                 new \App\Mail\LicenseActivatedMail($license),
                 $license->customer->email
             );
+
+            // Log activity
+            \App\Models\CustomerActivity::log(
+                $license->customer_id,
+                'license_activated',
+                "License {$license->license_key} activated for {$license->product->name}",
+                License::class,
+                $license->id,
+                [
+                    'activation_type' => $data['activation_type'],
+                    'activation_value' => $data['activation_value'],
+                    'product_name' => $license->product->name,
+                ],
+                $request->ip(),
+                $request->userAgent()
+            );
         }
 
         $statusCode = $result['success'] ? 201 : 400;

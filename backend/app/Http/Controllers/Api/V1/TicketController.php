@@ -94,6 +94,23 @@ class TicketController extends Controller
             );
         }
 
+        // Log activity
+        \App\Models\CustomerActivity::log(
+            $ticket->customer_id,
+            'ticket_created',
+            "Support ticket {$ticket->ticket_number} created: {$ticket->subject}",
+            SupportTicket::class,
+            $ticket->id,
+            [
+                'ticket_number' => $ticket->ticket_number,
+                'subject' => $ticket->subject,
+                'priority' => $ticket->priority,
+                'category' => $ticket->category,
+            ],
+            $request->ip(),
+            $request->userAgent()
+        );
+
         return new SupportTicketResource($ticket);
     }
 

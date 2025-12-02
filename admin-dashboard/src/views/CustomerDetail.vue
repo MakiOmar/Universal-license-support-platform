@@ -77,6 +77,10 @@ const route = useRoute()
 const customer = ref<any>(null)
 const licenses = ref([])
 const loading = ref(false)
+const activities = ref([])
+const activitiesLoading = ref(false)
+const activitiesPage = ref(1)
+const hasMoreActivities = ref(true)
 
 function getFullName(c: any) {
   if (c.first_name || c.last_name) {
@@ -112,8 +116,39 @@ async function fetchCustomer() {
   }
 }
 
+async function fetchActivities() {
+  if (activitiesLoading.value) return
+  
+  activitiesLoading.value = true
+  try {
+    const response = await api.get(`${ADMIN_API_BASE_URL}/customers/${route.params.id}/activities`, {
+      params: { per_page: 25, page: activitiesPage.value }
+    })
+    const data = response.data.data || response.data
+    const newActivities = Array.isArray(data) ? data : (data.data || [])
+    
+    if (activitiesPage.value === 1) {
+      activities.value = newActivities
+    } else {
+      activities.value.push(...newActivities)
+    }
+    
+    hasMoreActivities.value = newActivities.length === 25
+  } catch (error) {
+    console.error('Failed to fetch activities:', error)
+  } finally {
+    activitiesLoading.value = false
+  }
+}
+
+function loadMoreActivities() {
+  activitiesPage.value++
+  fetchActivities()
+}
+
 onMounted(() => {
   fetchCustomer()
+  fetchActivities()
 })
 </script>
 

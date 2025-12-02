@@ -88,6 +88,17 @@ class CustomerController extends Controller
         return \App\Http\Resources\Api\V1\SupportTicketResource::collection($tickets);
     }
 
+    public function getActivities(Customer $customer, Request $request)
+    {
+        $perPage = min($request->get('per_page', 25), 100);
+
+        $activities = $customer->activities()
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        return \App\Http\Resources\Api\V1\CustomerActivityResource::collection($activities);
+    }
+
     /**
      * Get authenticated customer's licenses
      * Performance: Uses select() to limit columns, eager loading for relationships

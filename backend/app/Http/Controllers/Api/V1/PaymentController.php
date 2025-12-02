@@ -128,6 +128,24 @@ class PaymentController extends Controller
             $payment->status = 'completed';
             $payment->paid_at = now();
             $payment->save();
+            $payment->load(['customer']);
+
+            // Log activity
+            \App\Models\CustomerActivity::log(
+                $payment->customer_id,
+                'payment_made',
+                "Payment of {$payment->amount} {$payment->currency} made via {$payment->payment_method}",
+                Payment::class,
+                $payment->id,
+                [
+                    'amount' => $payment->amount,
+                    'currency' => $payment->currency,
+                    'payment_method' => $payment->payment_method,
+                    'transaction_id' => $payment->transaction_id,
+                ],
+                $request->ip(),
+                $request->userAgent()
+            );
 
             $license->load(['product', 'customer']);
             $payment->load(['customer', 'license']);
