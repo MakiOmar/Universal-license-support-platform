@@ -50,7 +50,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="apiKey in apiKeys" :key="apiKey.id">
+          <tr v-for="apiKey in apiKeys" :key="apiKey?.id" v-if="apiKey">
             <td class="px-6 py-4 whitespace-nowrap">
               <code class="text-sm text-gray-900 font-mono">{{ truncateKey(apiKey.api_key) }}</code>
             </td>
@@ -277,21 +277,30 @@ async function fetchApiKeys() {
     if (searchQuery.value) params.search = searchQuery.value
     if (statusFilter.value) params.status = statusFilter.value
 
-    const queryString = new URLSearchParams(params).toString()
-    const response = await api.get(`${ADMIN_API_BASE_URL}/api-keys?${queryString}`)
+    const response = await api.get(`${ADMIN_API_BASE_URL}/api-keys`, { params })
     
-    apiKeys.value = response.data || []
-    pagination.value = {
-      current_page: response.current_page || 1,
-      from: response.from || 0,
-      to: response.to || 0,
-      total: response.total || 0,
-      prev_page_url: response.prev_page_url,
-      next_page_url: response.next_page_url
+    // Handle paginated response
+    if (response.data && Array.isArray(response.data)) {
+      apiKeys.value = response.data
+      pagination.value = null
+    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      apiKeys.value = response.data.data || []
+      pagination.value = {
+        current_page: response.data.current_page || 1,
+        from: response.data.from || 0,
+        to: response.data.to || 0,
+        total: response.data.total || 0,
+        prev_page_url: response.data.prev_page_url,
+        next_page_url: response.data.next_page_url
+      }
+    } else {
+      apiKeys.value = []
+      pagination.value = null
     }
   } catch (error: any) {
     console.error('Failed to fetch API keys:', error)
     toastError(error.response?.data?.message || 'Failed to fetch API keys')
+    apiKeys.value = []
   } finally {
     loading.value = false
   }
@@ -308,10 +317,11 @@ async function fetchCustomers() {
 
 async function fetchProducts() {
   try {
-    const response = await api.get(`${ADMIN_API_BASE_URL}/products?per_page=1000`)
-    products.value = response.data || []
+    const response = await api.get(`${ADMIN_API_BASE_URL}/products`, { params: { per_page: 1000 } })
+    products.value = response.data.data || response.data || []
   } catch (error) {
     console.error('Failed to fetch products:', error)
+    products.value = []
   }
 }
 
@@ -373,12 +383,12 @@ async function saveApiKey() {
     }
 
     if (editingApiKey.value) {
-      await api.put(`/api/v1/admin/api-keys/${editingApiKey.value.id}`, payload)
+      await api.put(`${ADMIN_API_BASE_URL}/api-keys/${editingApiKey.value.id}`, payload)
       toastSuccess('API key updated successfully')
     } else {
-      const response = await api.post('/api/v1/admin/api-keys', payload)
-      if (response.api_secret) {
-        displayedSecret.value = response.api_secret
+      const response = await api.post(`${ADMIN_API_BASE_URL}/api-keys`, payload)
+      if (response.data?.api_secret) {
+        displayedSecret.value = response.data.api_secret
         showSecretModal.value = true
       }
       toastSuccess('API key created successfully')
@@ -425,7 +435,7 @@ async function deleteApiKey(apiKey: any) {
   if (!confirmed) return
 
   try {
-    await api.delete(`/api/v1/admin/api-keys/${apiKey.id}`)
+    await api.delete(`${ADMIN_API_BASE_URL}/api-keys/${apiKey.id}`)
     toastSuccess('API key deleted successfully')
     await fetchApiKeys()
   } catch (error: any) {
