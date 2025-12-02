@@ -35,13 +35,13 @@ Route::prefix('v1')->group(function () {
         // Products
         Route::apiResource('products', ProductController::class);
 
-        // Customers
-        Route::apiResource('customers', CustomerController::class);
-        Route::get('customers/{customer}/licenses', [CustomerController::class, 'getLicenses']);
-        Route::get('customers/{customer}/tickets', [CustomerController::class, 'getTickets']);
+        // Customers - specific routes must come before resource routes
         Route::post('customers/import', [CustomerController::class, 'import']);
         Route::get('customers/export', [CustomerController::class, 'export']);
         Route::get('customers/import/status', [CustomerController::class, 'importStatus']);
+        Route::apiResource('customers', CustomerController::class);
+        Route::get('customers/{customer}/licenses', [CustomerController::class, 'getLicenses']);
+        Route::get('customers/{customer}/tickets', [CustomerController::class, 'getTickets']);
 
         // Licenses
         Route::get('licenses/validate', [LicenseController::class, 'validateKey']);
