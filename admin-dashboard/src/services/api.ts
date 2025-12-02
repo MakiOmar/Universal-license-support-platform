@@ -13,11 +13,9 @@ const responseCache = new Map<string, { data: AxiosResponse; timestamp: number }
 const CACHE_TTL = 5000 // 5 seconds cache
 
 // Generate cache key from request config
-function getCacheKey(config: AxiosRequestConfig): string {
-  const url = config.url || ''
-  const params = config.params ? JSON.stringify(config.params) : ''
-  const method = (config.method || 'get').toUpperCase()
-  return `${method}:${url}:${params}`
+function getCacheKey(method: string, url: string, params?: any): string {
+  const paramsStr = params ? JSON.stringify(params) : ''
+  return `${method.toUpperCase()}:${url}:${paramsStr}`
 }
 
 // Clear cache for related endpoints after mutations
@@ -44,7 +42,7 @@ const api = axios.create({
   withCredentials: true // Required for Sanctum SPA authentication
 })
 
-// Request interceptor: add auth token and handle caching/deduplication
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('admin_token')
@@ -52,47 +50,6 @@ api.interceptors.request.use(
       config.headers = config.headers || {}
       config.headers['Authorization'] = `Bearer ${token}`
     }
-
-    // Only deduplicate and cache GET requests
-    if (config.method?.toLowerCase() === 'get') {
-      const cacheKey = getCacheKey(config)
-      
-      // Check cache first
-      const cached = responseCache.get(cacheKey)
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        // Return cached response by creating a resolved promise
-        return Promise.resolve(cached.data) as any
-      }
-
-      // Check if request is already in-flight
-      if (pendingRequests.has(cacheKey)) {
-        // Return the existing promise
-        return pendingRequests.get(cacheKey) as any
-      }
-
-      // Create new request and track it
-      const requestPromise = axios(config)
-        .then((response) => {
-          // Cache successful GET responses
-          responseCache.set(cacheKey, {
-            data: response,
-            timestamp: Date.now()
-          })
-          pendingRequests.delete(cacheKey)
-          return response
-        })
-        .catch((error) => {
-          pendingRequests.delete(cacheKey)
-          throw error
-        })
-
-      pendingRequests.set(cacheKey, requestPromise)
-      return requestPromise as any
-    } else {
-      // For non-GET requests, clear related cache
-      clearRelatedCache(config.method || 'get', config.url || '')
-    }
-
     return config
   },
   (error) => {
@@ -104,7 +61,6 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 errors
     if (error.response?.status === 401) {
       localStorage.removeItem('admin_token')
       localStorage.removeItem('admin_user')
@@ -113,5 +69,69 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+// Wrapper functions with deduplication and caching
+const originalGet = api.get.bind(api)
+api.get = function(url: string, config?: AxiosRequestConfig) {
+  const method = 'get'
+  const params = config?.params
+  const cacheKey = getCacheKey(method, url, params)
+  
+  // Check cache first
+  const cached = responseCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return Promise.resolve(cached.data)
+  }
+
+  // Check if request is already in-flight
+  if (pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey)!
+  }
+
+  // Create new request
+  const requestPromise = originalGet(url, config)
+    .then((response) => {
+      // Cache successful responses
+      responseCache.set(cacheKey, {
+        data: response,
+        timestamp: Date.now()
+      })
+      pendingRequests.delete(cacheKey)
+      return response
+    })
+    .catch((error) => {
+      pendingRequests.delete(cacheKey)
+      throw error
+    })
+
+  pendingRequests.set(cacheKey, requestPromise)
+  return requestPromise
+}
+
+// Wrap POST/PUT/PATCH/DELETE to clear cache
+const originalPost = api.post.bind(api)
+const originalPut = api.put.bind(api)
+const originalPatch = api.patch.bind(api)
+const originalDelete = api.delete.bind(api)
+
+api.post = function(url: string, data?: any, config?: AxiosRequestConfig) {
+  clearRelatedCache('POST', url)
+  return originalPost(url, data, config)
+}
+
+api.put = function(url: string, data?: any, config?: AxiosRequestConfig) {
+  clearRelatedCache('PUT', url)
+  return originalPut(url, data, config)
+}
+
+api.patch = function(url: string, data?: any, config?: AxiosRequestConfig) {
+  clearRelatedCache('PATCH', url)
+  return originalPatch(url, data, config)
+}
+
+api.delete = function(url: string, config?: AxiosRequestConfig) {
+  clearRelatedCache('DELETE', url)
+  return originalDelete(url, config)
+}
 
 export default api
