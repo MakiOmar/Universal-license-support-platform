@@ -385,7 +385,7 @@ ulsp/
   - [x] License transfer functionality
   - [x] Period-based expiration calculation
   - [x] Customer import/export (CSV)
-  - [ ] License renewal system
+  - [x] License renewal system (backend and UI complete)
   - [ ] Usage analytics and reporting
   - [ ] Export functionality (PDF reports)
   - [ ] Bulk operations for licenses
@@ -396,7 +396,7 @@ ulsp/
   - [x] Edit license functionality
   - [x] License transfer UI
   - [ ] Bulk operations
-  - [ ] License renewal system
+  - [x] License renewal system (backend and UI complete)
   - [x] License expiration notifications (scheduled daily checks at 30, 7, and 1 days before expiration)
 
 - [ ] **Ticket Management**
