@@ -544,6 +544,10 @@ function resetForm() {
 
 function openCreateModal() {
   resetForm()
+  // Fetch metadata if not already loaded
+  if (products.value.length === 0 || customers.value.length === 0) {
+    fetchMetadata()
+  }
   showFormModal.value = true
 }
 
