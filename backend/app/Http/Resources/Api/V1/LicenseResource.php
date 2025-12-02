@@ -27,8 +27,8 @@ class LicenseResource extends JsonResource
             'expires_at' => $this->expires_at?->toIso8601String(),
             'support_expires_at' => $this->support_expires_at?->toIso8601String(),
             'activations' => LicenseActivationResource::collection($this->whenLoaded('activations')),
-            'created_at' => $this->created_at->toIso8601String(),
-            'updated_at' => $this->updated_at->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }
