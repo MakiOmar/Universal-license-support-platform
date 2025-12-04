@@ -21,8 +21,11 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
 
-  // CSS is handled by @nuxt/ui
-  // css: [resolve(__dirname, 'assets/css/main.css')],
+  // Configure @nuxt/ui to use Tailwind
+  ui: {
+    global: true,
+    icons: ['heroicons']
+  },
 
   vite: {
     resolve: {
