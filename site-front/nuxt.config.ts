@@ -23,6 +23,13 @@ export default defineNuxtConfig({
 
   css: [resolve(__dirname, 'assets/css/main.css')],
 
+  postcss: {
+    plugins: {
+      tailwindcss: {},
+      autoprefixer: {},
+    },
+  },
+
   vite: {
     resolve: {
       alias: {
