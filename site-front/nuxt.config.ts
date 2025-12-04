@@ -17,12 +17,12 @@ export default defineNuxtConfig({
     '@nuxt/image',
     '@nuxt/scripts',
     '@nuxt/ui',
-    '@nuxtjs/tailwindcss',
     '@nuxt/test-utils',
     '@pinia/nuxt'
   ],
 
-  css: [resolve(__dirname, 'assets/css/main.css')],
+  // CSS is handled by @nuxt/ui
+  // css: [resolve(__dirname, 'assets/css/main.css')],
 
   vite: {
     resolve: {
