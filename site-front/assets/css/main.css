@@ -1,4 +1,2 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+/* Custom styles - Tailwind is handled by @nuxt/ui */
+/* Add your custom CSS here */

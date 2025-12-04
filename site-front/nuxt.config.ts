@@ -18,7 +18,8 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
 
-  css: [resolve(__dirname, 'assets/css/main.css')],
+  // CSS is handled by @nuxt/ui, but you can add custom CSS here if needed
+  // css: [resolve(__dirname, 'assets/css/main.css')],
 
   vite: {
     resolve: {
