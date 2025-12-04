@@ -16,7 +16,7 @@ export default defineNuxtConfig({
     '@nuxt/hints',
     '@nuxt/image',
     '@nuxt/scripts',
-    '@nuxt/ui',
+    // '@nuxt/ui', // Commented out to avoid conflicts with Tailwind v3
     '@nuxt/test-utils',
     '@pinia/nuxt'
   ],
