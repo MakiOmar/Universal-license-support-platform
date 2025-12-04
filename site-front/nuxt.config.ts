@@ -7,6 +7,9 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  
+  // Ensure pages directory is detected
+  pages: true,
 
   modules: [
     '@nuxt/eslint',
