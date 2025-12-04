@@ -142,8 +142,9 @@
 </template>
 
 <script setup lang="ts">
+// Allow unauthenticated access - will redirect via middleware if needed
 definePageMeta({
-  middleware: 'auth' // Requires authentication
+  middleware: 'auth'
 })
 
 const authStore = useAuthStore()
