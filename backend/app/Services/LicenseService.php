@@ -48,14 +48,23 @@ class LicenseService
         });
     }
 
-    public function validate(string $licenseKey, ?string $activationType = null, ?string $activationValue = null): array
-    {
+    public function validate(
+        string $licenseKey,
+        ?string $activationType = null,
+        ?string $activationValue = null,
+        ?int $productId = null,
+    ): array {
         $license = License::with(['product', 'activations'])
             ->where('license_key', $licenseKey)
             ->first();
 
         if (! $license) {
             return ['valid' => false, 'reason' => 'license_not_found'];
+        }
+
+        // When the API key is scoped to a product, reject licenses for other products.
+        if ($productId !== null && (int) $license->product_id !== (int) $productId) {
+            return ['valid' => false, 'reason' => 'license_product_mismatch'];
         }
 
         if ($license->status === License::STATUS_SUSPENDED) {
@@ -95,12 +104,20 @@ class LicenseService
         string $activationValue,
         ?string $ipAddress = null,
         ?string $userAgent = null,
+        ?int $productId = null,
     ): LicenseActivation {
-        $validation = $this->validate($licenseKey);
+        $validation = $this->validate($licenseKey, null, null, $productId);
 
         if (! ($validation['valid'] ?? false)) {
+            $reason = $validation['reason'] ?? 'invalid';
+
+            $message = match ($reason) {
+                'license_product_mismatch' => __('This license does not belong to this product.'),
+                default => __('Invalid or inactive license.'),
+            };
+
             throw ValidationException::withMessages([
-                'license_key' => [__('Invalid or inactive license.')],
+                'license_key' => [$message],
             ]);
         }
 

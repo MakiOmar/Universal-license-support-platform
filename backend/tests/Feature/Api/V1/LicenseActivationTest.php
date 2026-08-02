@@ -89,4 +89,45 @@ class LicenseActivationTest extends TestCase
 
         $response->assertUnauthorized();
     }
+
+    public function test_rejects_license_for_different_product(): void
+    {
+        $otherProduct = Product::create([
+            'name' => 'Other Product',
+            'slug' => 'other-product',
+            'type' => 'mobile_app',
+            'key_prefix' => 'OTH',
+            'status' => 'active',
+        ]);
+
+        $otherLicense = License::create([
+            'license_key' => 'OTH-AAAA-BBBB-CCCC-DDDD',
+            'product_id' => $otherProduct->id,
+            'customer_id' => $this->license->customer_id,
+            'max_activations' => 2,
+            'status' => License::STATUS_ACTIVE,
+            'purchased_at' => now(),
+            'expires_at' => now()->addYear(),
+        ]);
+
+        // API key is scoped to Test Product; other product license must fail.
+        $validate = $this->withHeader('X-API-Key', $this->apiKey->key)
+            ->postJson('/api/v1/licenses/validate', [
+                'license_key' => $otherLicense->license_key,
+            ]);
+
+        $validate->assertOk()
+            ->assertJsonPath('valid', false)
+            ->assertJsonPath('reason', 'license_product_mismatch');
+
+        $activate = $this->withHeader('X-API-Key', $this->apiKey->key)
+            ->postJson('/api/v1/licenses/activate', [
+                'license_key' => $otherLicense->license_key,
+                'activation_type' => 'device_id',
+                'activation_value' => 'device-123',
+            ]);
+
+        $activate->assertUnprocessable()
+            ->assertJsonValidationErrors(['license_key']);
+    }
 }

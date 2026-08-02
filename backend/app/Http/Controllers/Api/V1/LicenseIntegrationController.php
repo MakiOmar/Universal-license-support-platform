@@ -22,10 +22,13 @@ class LicenseIntegrationController extends Controller
 
     public function validate(ValidateLicenseRequest $request): JsonResponse
     {
+        $apiKey = $request->attributes->get('api_key');
+
         $result = $this->licenseService->validate(
             $request->validated('license_key'),
             $request->validated('activation_type'),
             $request->validated('activation_value'),
+            $apiKey?->product_id,
         );
 
         $response = [
@@ -46,12 +49,15 @@ class LicenseIntegrationController extends Controller
 
     public function activate(ActivateLicenseRequest $request): LicenseActivationResource
     {
+        $apiKey = $request->attributes->get('api_key');
+
         $activation = $this->licenseService->activate(
             $request->validated('license_key'),
             $request->validated('activation_type'),
             $request->validated('activation_value'),
             $request->ip(),
             $request->userAgent(),
+            $apiKey?->product_id,
         );
 
         return new LicenseActivationResource($activation);
@@ -59,8 +65,22 @@ class LicenseIntegrationController extends Controller
 
     public function deactivate(DeactivateLicenseRequest $request): JsonResponse
     {
+        $apiKey = $request->attributes->get('api_key');
+        $licenseKey = $request->validated('license_key');
+
+        if ($apiKey?->product_id) {
+            $ownsProduct = License::query()
+                ->where('license_key', $licenseKey)
+                ->where('product_id', $apiKey->product_id)
+                ->exists();
+
+            if (! $ownsProduct) {
+                return response()->json(['message' => 'This license does not belong to this product.'], 422);
+            }
+        }
+
         $deactivated = $this->licenseService->deactivate(
-            $request->validated('license_key'),
+            $licenseKey,
             $request->validated('activation_hash'),
         );
 
@@ -71,11 +91,17 @@ class LicenseIntegrationController extends Controller
         return response()->json(['message' => 'Activation deactivated.']);
     }
 
-    public function activations(string $licenseKey): JsonResponse
+    public function activations(Request $request, string $licenseKey): JsonResponse
     {
-        $license = License::with('activations')
-            ->where('license_key', $licenseKey)
-            ->firstOrFail();
+        $apiKey = $request->attributes->get('api_key');
+
+        $query = License::with('activations')->where('license_key', $licenseKey);
+
+        if ($apiKey?->product_id) {
+            $query->where('product_id', $apiKey->product_id);
+        }
+
+        $license = $query->firstOrFail();
 
         return response()->json([
             'license_key' => $license->license_key,

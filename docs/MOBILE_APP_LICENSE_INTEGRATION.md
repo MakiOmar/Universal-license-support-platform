@@ -183,8 +183,11 @@ Possible `reason` values:
 | `license_suspended` | Admin suspended |
 | `license_cancelled` | Cancelled / refunded |
 | `license_expired` | Past `expires_at` |
+| `license_product_mismatch` | Key belongs to a different product than this app’s API key |
 
 If `valid` is true but `activation_valid` is false, this device is not registered — call **activate** again (or show “device not registered”).
+
+Each mobile app must use an API key **scoped to that product** in Filament. Otherwise any active license from any product could be accepted.
 
 ---
 
