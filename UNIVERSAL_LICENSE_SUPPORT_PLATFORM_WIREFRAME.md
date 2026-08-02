@@ -1,1051 +1,586 @@
-# Universal License Management & Support Ticket Platform - Wireframe
+# Universal License & Support Platform — Wireframe
 
 ## Overview
-This document outlines the architecture for a universal SaaS platform that manages software licenses and support tickets for any software product or application. The system is designed to be product-agnostic, multi-tenant, and scalable.
+
+Product-agnostic SaaS for **license management** and **support tickets**. One Laravel backend owns data, business rules, admin UI, and public API. The customer-facing site is a separate **Qwik City** app that consumes the API.
+
+**Design goals:** simple ops, fast customer UX, strong admin productivity, clear API for product integrations.
 
 ---
 
 ## 1. System Architecture
 
-### 1.1 Core Components
+### 1.1 High-level layout
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Platform Core                         │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   License    │  │   Support   │  │   Customer   │  │
-│  │  Management  │  │   Tickets   │  │    Portal    │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-│                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Payment    │  │   Analytics  │  │   API        │  │
-│  │   Gateway    │  │   & Reports  │  │   Gateway    │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         Clients                                   │
+│  ┌─────────────────────┐     ┌─────────────────────────────────┐ │
+│  │ Qwik City portal    │     │ External products / SDKs        │ │
+│  │ (customers)         │     │ (WP plugins, apps, APIs)        │ │
+│  └──────────┬──────────┘     └──────────────┬──────────────────┘ │
+└─────────────┼───────────────────────────────┼────────────────────┘
+              │ HTTPS JSON                    │ API key / license
+              ▼                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    Laravel application                            │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────┐  │
+│  │ Filament admin │  │ REST API /v1   │  │ Domain services    │  │
+│  │ (session auth) │  │ Sanctum/tokens │  │ licenses, tickets  │  │
+│  └────────────────┘  └────────────────┘  └────────────────────┘  │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────┐  │
+│  │ Queue workers  │  │ Redis cache    │  │ Mail / webhooks    │  │
+│  └────────────────┘  └────────────────┘  └────────────────────┘  │
+└───────────────────────────────┬──────────────────────────────────┘
+                                ▼
+                     MySQL 8+ (primary store)
 ```
 
-### 1.2 Technology Stack
+### 1.2 Technology stack (locked)
 
-**Backend:**
-- Framework: Laravel 10+ / Node.js (Express/NestJS)
-- Database: PostgreSQL 14+ / MySQL 8.0+
-- Cache: Redis
-- Queue: RabbitMQ / Redis Queue
-- Search: Elasticsearch (optional)
+| Layer | Choice | Why |
+|---|---|---|
+| Backend + Admin | **Laravel 11+** with **Filament 3** | One codebase for API + admin; Filament gives CRUD, filters, policies, and auth without a second SPA |
+| Customer site | **Qwik City** | Resumable UI, excellent TTFB/SEO for marketing + portal; talks to Laravel over REST |
+| Database | **MySQL 8+** (PostgreSQL optional later) | Matches common WAMP/VPS hosting; Laravel first-class support |
+| Cache / queues | **Redis** + Laravel queues | Enough for jobs, rate limits, and sessions; avoid RabbitMQ until needed |
+| Auth (admin) | Filament session (guard `web`) | Cookie session inside Laravel — no admin CORS pain |
+| Auth (customer) | Laravel Sanctum personal access tokens | Stateless API for Qwik; easy logout/revoke |
+| Auth (product API) | API keys (`X-API-Key` + optional secret) | For license validate/activate from shipped software |
+| Payments | **Stripe first**, PayPal later | One solid gateway before multi-gateway complexity |
+| Search | MySQL full-text first; Meilisearch later | Ship faster; add Meilisearch when ticket volume hurts |
+| Hosting | Any PHP 8.2+ host + Node build for Qwik static/SSR | Keep infra boring |
 
-**Frontend:**
-- Admin Dashboard: React / Vue.js
-- Customer Portal: React / Next.js
-- API: RESTful + GraphQL
+**Explicitly deferred (optimize later, not day one):** GraphQL, Elasticsearch, multi-region, crypto payments, native mobile apps.
 
-**Infrastructure:**
-- Cloud: AWS / DigitalOcean / Azure
-- CDN: Cloudflare
-- Monitoring: New Relic / Datadog
-- Logging: ELK Stack
+### 1.3 Repository layout
+
+```
+ulsp/
+├── backend/                 # Laravel: API + Filament admin + jobs
+│   ├── app/
+│   ├── app/Filament/        # Admin resources & pages
+│   ├── app/Http/Controllers/Api/V1/
+│   ├── app/Services/        # LicenseService, TicketService, ...
+│   └── routes/api.php
+├── site-front/              # Qwik City customer portal + marketing
+│   ├── src/routes/
+│   ├── src/components/
+│   └── src/lib/api.ts       # Typed API client → /api/v1
+└── docs/                    # Optional: OpenAPI, runbooks
+```
+
+### 1.4 Request boundaries
+
+| Surface | Base URL | Auth |
+|---|---|---|
+| Admin (Filament) | `https://api.example.com/admin` | Session (admin users) |
+| Public/customer API | `https://api.example.com/api/v1` | Sanctum Bearer (customers) or API key (integrations) |
+| Qwik site | `https://www.example.com` | Browser holds Sanctum token; never embeds admin |
 
 ---
 
-## 2. Multi-Product System
+## 2. Domain model
 
-### 2.1 Product Management
+### 2.1 Core entities
 
-#### Product Structure
-```php
-{
-    "id": 1,
-    "name": "WooCommerce Redis Cache",
-    "slug": "woocommerce-redis-cache",
-    "description": "Redis caching extension for WooCommerce",
-    "type": "wordpress_plugin|web_app|desktop_app|mobile_app|api_service",
-    "version": "1.0.34",
-    "pricing_tiers": [
-        {
-            "id": 1,
-            "name": "Single Site",
-            "price": 49.00,
-            "currency": "USD",
-            "max_activations": 1,
-            "billing_cycle": "yearly|monthly|lifetime"
-        }
-    ],
-    "status": "active|inactive|archived",
-    "created_at": "2024-01-15",
-    "updated_at": "2024-01-15"
-}
+- **User** — admin/support agents (Filament)
+- **Customer** — portal end users (separate from admin users)
+- **Product** — sellable software SKU
+- **PricingTier** — activation limits + billing cycle
+- **License** — issued key bound to customer + product
+- **LicenseActivation** — domain / machine / device / API binding
+- **SupportTicket** + **TicketReply** + **TicketAttachment**
+- **Payment** — Stripe (and later PayPal) records
+- **ApiKey** — integration credentials for products
+- **WebhookDelivery** — outbound event log (optional table)
+
+### 2.2 Product types
+
+| Type | Activation binding |
+|---|---|
+| `wordpress_plugin` | Domain |
+| `web_app` | Domain |
+| `desktop_app` | Machine ID |
+| `mobile_app` | Device ID |
+| `api_service` | API key usage / rate limits |
+| `saas` | Subscription seat / account (Stripe-driven) |
+
+### 2.3 License key strategy (optimized)
+
+Do **not** encode domain/machine into the key string. Use opaque keys; store binding in `license_activations`.
+
+```
+Format: {PRODUCT_PREFIX}-{SEGMENT}-{SEGMENT}-{SEGMENT}-{SEGMENT}
+Example: WCR-A1B2-C3D4-E5F6-G7H8
 ```
 
-#### Product Types Supported
-- **WordPress Plugins**: License validation via API
-- **Web Applications**: Domain-based licensing
-- **Desktop Applications**: Machine ID-based licensing
-- **Mobile Apps**: Device ID-based licensing
-- **API Services**: API key-based licensing
-- **SaaS Products**: Subscription-based licensing
+- Prefix from product settings (human-readable)
+- Segments: cryptographically random, uppercase alphanumeric
+- Uniqueness enforced in DB; validation is API-driven
 
-### 2.2 License Key Format by Product Type
+### 2.4 License lifecycle
 
-```php
-// WordPress Plugin
-Format: {PRODUCT_SLUG}-XXXX-XXXX-XXXX-XXXX
-Example: WC-REDIS-A1B2-C3D4-E5F6-G7H8
-
-// Web Application
-Format: {PRODUCT_SLUG}-{DOMAIN_HASH}-XXXX
-Example: MYAPP-ABC123-XYZ789
-
-// Desktop Application
-Format: {PRODUCT_SLUG}-{MACHINE_ID}-XXXX
-Example: DESKTOP-12345678-ABCD
-
-// Mobile App
-Format: {PRODUCT_SLUG}-{DEVICE_ID}-XXXX
-Example: MOBILE-IMEI123-ABCD
-
-// API Service
-Format: {PRODUCT_SLUG}-{RANDOM}-{RANDOM}
-Example: API-KEY-ABC123-XYZ789
 ```
+pending → active → expired
+                 → suspended
+                 → cancelled
+```
+
+Rules live in `LicenseService` (not controllers): activate, deactivate, transfer, renew, suspend.
+
+### 2.5 Ticket lifecycle
+
+```
+open → in_progress → waiting_customer → resolved → closed
+```
+
+Priorities: `low | medium | high | urgent`  
+Categories: `technical | billing | feature_request | bug_report | account | license`
 
 ---
 
-## 3. License Management System
+## 3. Laravel backend
 
-### 3.1 License Lifecycle
+### 3.1 Layering
 
 ```
-┌──────────┐
-│ Pending  │ (Payment processing)
-└────┬─────┘
-     │
-     ▼
-┌──────────┐
-│ Active   │ (Valid and usable)
-└────┬─────┘
-     │
-     ├──► ┌──────────┐
-     │    │ Expired  │ (Needs renewal)
-     │    └──────────┘
-     │
-     ├──► ┌──────────┐
-     │    │Suspended │ (Violation detected)
-     │    └──────────┘
-     │
-     └──► ┌──────────┐
-          │Cancelled │ (Refunded/Deleted)
-          └──────────┘
+HTTP (Form Requests / API Resources)
+        ↓
+Services / Actions (business rules)
+        ↓
+Eloquent models + DB transactions
+        ↓
+Events → Listeners / Jobs (mail, webhooks, analytics)
 ```
 
-### 3.2 License Activation Types
+Controllers stay thin. Validation via Form Requests. Authorization via Policies + Filament shields.
 
-#### A. Domain-Based (Web Apps/Plugins)
-```php
-{
-    "license_key": "WC-REDIS-A1B2-C3D4-E5F6-G7H8",
-    "product_id": 1,
-    "activation_type": "domain",
-    "domain": "example.com",
-    "domain_hash": "sha256_hash",
-    "max_activations": 1,
-    "current_activations": 1
-}
+### 3.2 Admin (Filament)
+
+Ship admin **inside Laravel** (not a Vue SPA).
+
+**Required Filament areas:**
+
+1. **Dashboard** — licenses, open tickets, MRR/revenue snapshot, activation rate
+2. **Products & pricing tiers**
+3. **Customers** — CRUD, import/export, activity
+4. **Licenses** — issue, suspend, transfer, renew, bulk actions
+5. **Activations** — inspect/revoke bindings
+6. **Tickets** — queue, assign, internal notes, SLA badges
+7. **Payments** — Stripe status, refunds linkage
+8. **API keys** — create/revoke/regenerate secret
+9. **Users & roles** — Super Admin, Admin, Support Agent
+10. **Settings** — mail, Stripe keys, SLA, branding defaults
+11. **Activity log** — audit trail (spatie/laravel-activitylog or equivalent)
+
+**Admin UX standards:**
+
+- Server-side tables (search, sort, filters, bulk actions)
+- SweetAlert-style confirms via Filament Actions
+- Toast feedback for mutations
+- Empty states on every list
+
+### 3.3 API surface (`/api/v1`)
+
+#### Public product catalog
+```
+GET  /products
+GET  /products/{product}
 ```
 
-#### B. Machine ID-Based (Desktop Apps)
-```php
-{
-    "license_key": "DESKTOP-12345678-ABCD",
-    "product_id": 2,
-    "activation_type": "machine_id",
-    "machine_id": "ABC123-XYZ789",
-    "max_activations": 3,
-    "current_activations": 1
-}
+#### Customer auth
+```
+POST /auth/register
+POST /auth/login
+POST /auth/forgot-password
+POST /auth/reset-password
+GET  /customer/me
+PUT  /customer/profile
 ```
 
-#### C. Device ID-Based (Mobile Apps)
-```php
-{
-    "license_key": "MOBILE-IMEI123-ABCD",
-    "product_id": 3,
-    "activation_type": "device_id",
-    "device_id": "IMEI123456789",
-    "max_activations": 2,
-    "current_activations": 1
-}
+#### Customer portal (Sanctum)
+```
+GET  /customer/licenses
+GET  /customer/licenses/{license}
+GET  /customer/tickets
+POST /customer/tickets
+GET  /customer/tickets/{ticket}
+POST /customer/tickets/{ticket}/replies
 ```
 
-#### D. API Key-Based (API Services)
-```php
-{
-    "license_key": "API-KEY-ABC123-XYZ789",
-    "product_id": 4,
-    "activation_type": "api_key",
-    "api_key": "sk_live_abc123xyz789",
-    "rate_limit": 10000,
-    "current_usage": 5234
-}
+#### Integration / license engine (API key)
 ```
+POST /licenses/validate
+POST /licenses/activate
+POST /licenses/deactivate
+GET  /licenses/by-key/{license_key}/activations
+GET  /licenses/by-key/{license_key}/updates
+```
+
+#### Admin JSON (optional; prefer Filament UI)
+Keep only if external tools need it. Prefer Filament for humans.
+
+```
+POST /admin/login          # Sanctum token for tooling only
+GET  /admin/me
+# CRUD resources already covered by Filament — avoid duplicating unless required
+```
+
+#### Webhooks (inbound)
+```
+POST /webhooks/payment/{gateway}
+```
+
+#### Webhooks (outbound events)
+```
+license.activated | license.expired | ticket.created | payment.received
+```
+
+### 3.4 Auth matrix
+
+| Actor | Mechanism | Notes |
+|---|---|---|
+| Admin / agent | Filament session | Roles via Filament Shield or Spatie Permission |
+| Customer | Sanctum token | Issued on login/register; stored by Qwik client |
+| Product integration | API key (+ secret where needed) | Scoped per product/customer; rate limited |
+
+### 3.5 Cross-cutting backend concerns
+
+- Rate limiting middleware (stricter on validate/activate)
+- Input sanitization + secure upload for ticket attachments
+- Idempotent Stripe webhooks
+- Queued mail + webhook deliveries
+- Structured logging; never leak secrets in API errors
+- Feature flags via config/settings for optional modules (white-label later)
 
 ---
 
-## 4. Support Ticket System
+## 4. Qwik City customer site
 
-### 4.1 Ticket Structure
+### 4.1 Role
 
-```php
-{
-    "id": 12345,
-    "ticket_number": "TKT-2024-001234",
-    "customer_id": 456,
-    "license_id": 789,
-    "product_id": 1,
-    "subject": "Installation issue",
-    "description": "Plugin not activating...",
-    "priority": "low|medium|high|urgent",
-    "status": "open|in_progress|waiting_customer|resolved|closed",
-    "category": "technical|billing|feature_request|bug_report",
-    "tags": ["installation", "activation", "error"],
-    "assigned_to": 12, // Support agent ID
-    "created_at": "2024-01-15 10:30:00",
-    "updated_at": "2024-01-15 14:20:00",
-    "resolved_at": null,
-    "attachments": [
-        {
-            "id": 1,
-            "filename": "error_log.txt",
-            "url": "https://cdn.example.com/files/error_log.txt",
-            "size": 1024
-        }
-    ],
-    "replies": [
-        {
-            "id": 1,
-            "user_id": 456,
-            "user_type": "customer",
-            "message": "I'm having trouble...",
-            "created_at": "2024-01-15 10:30:00",
-            "is_internal": false
-        }
-    ]
-}
-```
+Qwik owns:
 
-### 4.2 Ticket Workflow
+- Marketing / product pages (SSR + resumability)
+- Customer auth UI
+- License list/detail + activation helpers
+- Ticket list/create/detail/reply
+- Profile + password flows
+- Checkout UX that calls Laravel/Stripe (Stripe Checkout or Payment Element)
+
+Qwik does **not** own business rules for licenses or tickets — Laravel is source of truth.
+
+### 4.2 Suggested routes
 
 ```
-┌──────────┐
-│  Open    │ (New ticket created)
-└────┬─────┘
-     │
-     ▼
-┌──────────────┐
-│ In Progress  │ (Agent working on it)
-└────┬─────────┘
-     │
-     ├──► ┌──────────────────┐
-     │    │ Waiting Customer │ (Awaiting response)
-     │    └──────────────────┘
-     │
-     └──► ┌──────────┐
-          │ Resolved │ (Issue fixed)
-          └────┬─────┘
-               │
-               ▼
-          ┌──────────┐
-          │  Closed  │ (Ticket archived)
-          └──────────┘
+/                     Marketing home
+/products             Catalog
+/products/[slug]      Product detail + buy CTA
+/login | /register | /forgot-password | /reset-password
+/app                  Customer dashboard (auth)
+/app/licenses
+/app/licenses/[id]
+/app/tickets
+/app/tickets/[id]
+/app/profile
+/checkout/...         Payment return/cancel pages
 ```
 
-### 4.3 Ticket Priorities
+### 4.3 Frontend architecture
 
-- **Low**: General inquiries, feature requests
-- **Medium**: Non-critical bugs, configuration help
-- **High**: Critical bugs, payment issues
-- **Urgent**: System down, security issues
-
-### 4.4 Ticket Categories
-
-- **Technical**: Installation, configuration, errors
-- **Billing**: Payments, refunds, invoices
-- **Feature Request**: New feature suggestions
-- **Bug Report**: Software defects
-- **Account**: Account management, password reset
-- **License**: License activation, transfer, renewal
-
-### 4.5 Support SLA (Service Level Agreement)
-
-```php
-{
-    "priority": "urgent",
-    "first_response_time": "1 hour",
-    "resolution_time": "4 hours",
-    "business_hours_only": false
-},
-{
-    "priority": "high",
-    "first_response_time": "4 hours",
-    "resolution_time": "24 hours",
-    "business_hours_only": false
-},
-{
-    "priority": "medium",
-    "first_response_time": "24 hours",
-    "resolution_time": "72 hours",
-    "business_hours_only": true
-},
-{
-    "priority": "low",
-    "first_response_time": "48 hours",
-    "resolution_time": "7 days",
-    "business_hours_only": true
-}
 ```
+site-front/
+  src/
+    routes/                 # file-based routing (Qwik City)
+    components/ui/          # presentational
+    components/forms/       # login, ticket, profile
+    lib/api.ts              # fetch wrapper → NUXT-like env: PUBLIC_API_BASE
+    lib/auth.ts             # token storage + route guards
+    lib/types.ts            # DTO types matching API Resources
+```
+
+**Client rules:**
+
+- `PUBLIC_API_BASE=https://api.example.com/api/v1` (must include `/api/v1`)
+- Auth header: `Authorization: Bearer {token}`
+- Handle 401 → clear token → `/login`
+- Loading / empty / error states on every data route
+- Toast for success/error; confirm destructive actions
+
+### 4.4 Why Qwik here (optimization)
+
+- Portal + marketing benefit from SSR and resumability (less JS on first interaction)
+- Clear split: Laravel for privileged/admin work, Qwik for public/customer UX
+- Avoids maintaining a second heavy SPA admin (Filament covers that)
 
 ---
 
-## 5. Customer Portal
+## 5. Customer portal UX (wire)
 
-### 5.1 Portal Features
+### 5.1 Dashboard
 
-#### Dashboard
-```
-┌─────────────────────────────────────────────────────┐
-│ Customer Portal - Dashboard                         │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ Welcome back, John Doe                              │
-│                                                      │
-│ ┌────────────────┐  ┌────────────────┐             │
-│ │ Active         │  │ Support        │             │
-│ │ Licenses       │  │ Tickets        │             │
-│ │     5          │  │     2 Open     │             │
-│ └────────────────┘  └────────────────┘             │
-│                                                      │
-│ Recent Activity:                                     │
-│ • License activated: WooCommerce Redis Cache        │
-│ • Ticket #TKT-2024-001234 replied                   │
-│ • Invoice #INV-2024-001 paid                        │
-│                                                      │
-│ Quick Actions:                                       │
-│ [Activate License] [Open Ticket] [View Invoices]   │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
+- Counts: active licenses, open tickets
+- Recent activity (activations, replies, payments)
+- CTAs: activate license, open ticket, view invoices
 
-#### License Management
-```
-┌─────────────────────────────────────────────────────┐
-│ My Licenses                                         │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ WooCommerce Redis Cache                        │ │
-│ │ License: WC-REDIS-A1B2-C3D4-E5F6-G7H8         │ │
-│ │ Status: [●] Active                             │ │
-│ │ Type: Single Site License                      │ │
-│ │ Domain: example.com                            │ │
-│ │ Activated: Jan 15, 2024                         │ │
-│ │ Expires: Jan 15, 2025 (365 days)              │ │
-│ │                                                  │ │
-│ │ [View Details] [Deactivate] [Transfer]         │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                      │
-│ [Purchase New License]                              │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
+### 5.2 Licenses
 
-#### Support Tickets
-```
-┌─────────────────────────────────────────────────────┐
-│ Support Tickets                                     │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ [New Ticket]                                        │
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ #TKT-2024-001234 | Installation issue          │ │
-│ │ Status: In Progress | Priority: High           │ │
-│ │ Created: Jan 15, 2024 | Last Reply: Jan 15     │ │
-│ │ [View] [Reply]                                  │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ #TKT-2024-001235 | Feature request            │ │
-│ │ Status: Open | Priority: Low                    │ │
-│ │ Created: Jan 16, 2024 | Last Reply: Jan 16     │ │
-│ │ [View] [Reply]                                  │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
+- List with status badges (active / expired / suspended)
+- Detail: key (reveal/copy), activations, expiry, support expiry
+- Actions: deactivate binding, request transfer, renew (Stripe)
 
-#### Ticket Detail View
-```
-┌─────────────────────────────────────────────────────┐
-│ Ticket #TKT-2024-001234                            │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ Subject: Installation issue                         │
-│ Status: In Progress | Priority: High               │
-│ Created: Jan 15, 2024 10:30 AM                     │
-│ Assigned to: Support Agent                          │
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ Customer (Jan 15, 10:30 AM)                    │ │
-│ │                                                 │ │
-│ │ I'm having trouble installing the plugin...    │ │
-│ │                                                 │ │
-│ │ [error_log.txt] (1.2 KB)                       │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ Support Agent (Jan 15, 11:15 AM)               │ │
-│ │                                                 │ │
-│ │ Thank you for contacting us. Let me help...    │ │
-│ │                                                 │ │
-│ │ [solution_guide.pdf] (245 KB)                  │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ Type your reply...                             │ │
-│ │                                                 │ │
-│ │ [Attach File] [Send Reply]                     │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
+### 5.3 Tickets
+
+- Create with product/license context
+- Threaded replies + attachments
+- Status/priority visible; no internal notes exposed
 
 ---
 
-## 6. Admin Dashboard
+## 6. Admin UX (Filament wire)
 
-### 6.1 Admin Features
+### 6.1 Dashboard widgets
 
-#### Dashboard Overview
-```
-┌─────────────────────────────────────────────────────┐
-│ Admin Dashboard                                     │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
-│ │ Total    │ │ Active   │ │ Open    │ │ Revenue  │ │
-│ │ Licenses │ │ Licenses │ │ Tickets │ │ (Month)  │ │
-│ │   1,234  │ │   987    │ │   45    │ │ $45,678  │ │
-│ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
-│                                                      │
-│ Recent Activity:                                     │
-│ • 5 new licenses activated today                    │
-│ • 12 tickets resolved today                         │
-│ • $2,345 in revenue today                           │
-│                                                      │
-│ Quick Stats:                                         │
-│ • License activation rate: 95%                      │
-│ • Average ticket resolution: 4.2 hours             │
-│ • Customer satisfaction: 4.8/5.0                   │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
+- Total / active licenses
+- Open tickets + urgent count
+- Month revenue
+- Activation success rate
+- Avg first response / resolution time
 
-#### License Management
-```
-┌─────────────────────────────────────────────────────┐
-│ License Management                                  │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ Filters: [All] [Active] [Expired] [Suspended]      │
-│ Search: [________________] [Search]                │
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ License Key    │ Product │ Customer │ Status   │ │
-│ ├────────────────┼─────────┼──────────┼──────────┤ │
-│ │ WC-REDIS-...   │ WC Cache│ John Doe │ Active   │ │
-│ │ [View] [Edit]  │         │          │          │ │
-│ └────────────────┴─────────┴──────────┴──────────┘ │
-│                                                      │
-│ [Export] [Bulk Actions ▼]                           │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
+### 6.2 Operational lists
 
-#### Ticket Management
-```
-┌─────────────────────────────────────────────────────┐
-│ Support Tickets                                     │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ Filters: [All] [Open] [In Progress] [Resolved]    │
-│ Priority: [All] [Urgent] [High] [Medium] [Low]     │
-│ Assigned: [All] [Unassigned] [Me]                  │
-│                                                      │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ Ticket # │ Subject │ Customer │ Priority │ Status│ │
-│ ├──────────┼─────────┼──────────┼──────────┼──────┤ │
-│ │ TKT-001  │ Install │ John Doe │ High     │ Open  │ │
-│ │          │ Issue   │          │          │       │ │
-│ │ [View] [Assign] [Reply]                          │ │
-│ └────────────────────────────────────────────────┘ │
-│                                                      │
-│ [Export] [Bulk Actions ▼]                           │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
+- Licenses: filters by status/product/customer; bulk suspend/export
+- Tickets: filters by status/priority/assignee; assign + internal note
+- Customers: search, licenses count, tickets count, import/export
 
 ---
 
-## 7. API System
+## 7. Database schema (Laravel / MySQL oriented)
 
-### 7.1 API Endpoints
-
-#### License Management API
-```
-POST   /api/v1/licenses/validate
-POST   /api/v1/licenses/activate
-POST   /api/v1/licenses/deactivate
-GET    /api/v1/licenses/{license_key}
-GET    /api/v1/licenses/{license_key}/activations
-POST   /api/v1/licenses/{license_key}/transfer
-GET    /api/v1/licenses/{license_key}/updates
-```
-
-#### Support Ticket API
-```
-GET    /api/v1/tickets
-POST   /api/v1/tickets
-GET    /api/v1/tickets/{ticket_id}
-PUT    /api/v1/tickets/{ticket_id}
-POST   /api/v1/tickets/{ticket_id}/replies
-GET    /api/v1/tickets/{ticket_id}/replies
-POST   /api/v1/tickets/{ticket_id}/close
-```
-
-#### Customer API
-```
-GET    /api/v1/customers
-GET    /api/v1/customers/{customer_id}
-GET    /api/v1/customers/{customer_id}/licenses
-GET    /api/v1/customers/{customer_id}/tickets
-```
-
-### 7.2 API Authentication
-
-```php
-// API Key Authentication
-Headers:
-  Authorization: Bearer {api_key}
-  X-API-Key: {api_key}
-  X-Product-ID: {product_id}
-
-// JWT Token Authentication
-Headers:
-  Authorization: Bearer {jwt_token}
-```
-
-### 7.3 API Rate Limiting
-
-```php
-{
-    "tier": "free",
-    "requests_per_minute": 60,
-    "requests_per_hour": 1000,
-    "requests_per_day": 10000
-},
-{
-    "tier": "paid",
-    "requests_per_minute": 300,
-    "requests_per_hour": 10000,
-    "requests_per_day": 100000
-}
-```
-
----
-
-## 8. Database Schema
-
-### 8.1 Core Tables
+Use Laravel migrations. Prefer `id` bigIncrements, `timestamps`, soft deletes where useful, and indexes on FKs + status columns.
 
 ```sql
--- Products
-CREATE TABLE products (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) UNIQUE NOT NULL,
-    description TEXT,
-    type VARCHAR(50) NOT NULL,
-    version VARCHAR(50),
-    status VARCHAR(20) DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- products
+id, name, slug UNIQUE, description, type, version, status, timestamps, soft_deletes
 
--- Customers
-CREATE TABLE customers (
-    id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    company VARCHAR(255),
-    phone VARCHAR(50),
-    password_hash VARCHAR(255),
-    status VARCHAR(20) DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- pricing_tiers
+id, product_id, name, price, currency, max_activations, billing_cycle, timestamps
 
--- Licenses
-CREATE TABLE licenses (
-    id BIGSERIAL PRIMARY KEY,
-    license_key VARCHAR(255) UNIQUE NOT NULL,
-    product_id BIGINT REFERENCES products(id),
-    customer_id BIGINT REFERENCES customers(id),
-    license_type VARCHAR(50) NOT NULL,
-    max_activations INT DEFAULT 1,
-    status VARCHAR(20) DEFAULT 'pending',
-    purchased_at TIMESTAMP,
-    expires_at TIMESTAMP,
-    support_expires_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- customers
+id, email UNIQUE, password, first_name, last_name, company, phone, status,
+email_verified_at, remember_token, timestamps, soft_deletes
 
--- License Activations
-CREATE TABLE license_activations (
-    id BIGSERIAL PRIMARY KEY,
-    license_id BIGINT REFERENCES licenses(id),
-    activation_type VARCHAR(50) NOT NULL, -- domain, machine_id, device_id, api_key
-    activation_value VARCHAR(255) NOT NULL, -- domain, machine_id, etc.
-    activation_hash VARCHAR(64),
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    status VARCHAR(20) DEFAULT 'active',
-    activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_check TIMESTAMP,
-    UNIQUE(license_id, activation_hash)
-);
+-- users (admins/agents)
+id, name, email UNIQUE, password, timestamps
 
--- Support Tickets
-CREATE TABLE support_tickets (
-    id BIGSERIAL PRIMARY KEY,
-    ticket_number VARCHAR(50) UNIQUE NOT NULL,
-    customer_id BIGINT REFERENCES customers(id),
-    license_id BIGINT REFERENCES licenses(id),
-    product_id BIGINT REFERENCES products(id),
-    subject VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    priority VARCHAR(20) DEFAULT 'medium',
-    status VARCHAR(20) DEFAULT 'open',
-    category VARCHAR(50),
-    assigned_to BIGINT, -- Support agent ID
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    resolved_at TIMESTAMP
-);
+-- licenses
+id, license_key UNIQUE, product_id, customer_id, pricing_tier_id,
+max_activations, status, purchased_at, expires_at, support_expires_at, timestamps
 
--- Ticket Replies
-CREATE TABLE ticket_replies (
-    id BIGSERIAL PRIMARY KEY,
-    ticket_id BIGINT REFERENCES support_tickets(id),
-    user_id BIGINT NOT NULL,
-    user_type VARCHAR(20) NOT NULL, -- customer, agent, system
-    message TEXT NOT NULL,
-    is_internal BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- license_activations
+id, license_id, activation_type, activation_value, activation_hash,
+ip_address, user_agent, status, activated_at, last_check_at, timestamps
+UNIQUE(license_id, activation_hash)
 
--- Ticket Attachments
-CREATE TABLE ticket_attachments (
-    id BIGSERIAL PRIMARY KEY,
-    ticket_id BIGINT REFERENCES support_tickets(id),
-    reply_id BIGINT REFERENCES ticket_replies(id),
-    filename VARCHAR(255) NOT NULL,
-    file_path VARCHAR(500) NOT NULL,
-    file_size BIGINT,
-    mime_type VARCHAR(100),
-    uploaded_by BIGINT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- support_tickets
+id, ticket_number UNIQUE, customer_id, license_id NULL, product_id NULL,
+subject, description, priority, status, category, assigned_to NULL,
+resolved_at, timestamps
 
--- Payments
-CREATE TABLE payments (
-    id BIGSERIAL PRIMARY KEY,
-    customer_id BIGINT REFERENCES customers(id),
-    license_id BIGINT REFERENCES licenses(id),
-    amount DECIMAL(10,2) NOT NULL,
-    currency VARCHAR(3) DEFAULT 'USD',
-    payment_method VARCHAR(50),
-    transaction_id VARCHAR(255),
-    status VARCHAR(20) DEFAULT 'pending',
-    paid_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- ticket_replies
+id, ticket_id, author_type (customer|user|system), author_id,
+message, is_internal, timestamps
 
--- API Keys
-CREATE TABLE api_keys (
-    id BIGSERIAL PRIMARY KEY,
-    customer_id BIGINT REFERENCES customers(id),
-    product_id BIGINT REFERENCES products(id),
-    api_key VARCHAR(255) UNIQUE NOT NULL,
-    api_secret VARCHAR(255) NOT NULL,
-    rate_limit INT DEFAULT 1000,
-    status VARCHAR(20) DEFAULT 'active',
-    last_used_at TIMESTAMP,
-    expires_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- ticket_attachments
+id, ticket_id, reply_id NULL, disk, path, filename, size, mime, uploaded_by, timestamps
+
+-- payments
+id, customer_id, license_id NULL, amount, currency, gateway, gateway_reference,
+status, paid_at, meta JSON, timestamps
+
+-- api_keys
+id, customer_id NULL, product_id NULL, name, key UNIQUE, secret_hash,
+rate_limit, status, last_used_at, expires_at, timestamps
+
+-- activity_log (package or custom)
+-- personal_access_tokens (Sanctum)
+-- jobs / failed_jobs / cache (Laravel defaults)
 ```
+
+**SLA config** can live in `settings` JSON/table rather than hardcoding.
 
 ---
 
-## 9. Payment Integration
+## 8. Payments
 
-### 9.1 Supported Payment Gateways
+### 8.1 Flow (Stripe-first)
 
-- **Stripe**: Credit cards, ACH, Apple Pay, Google Pay
-- **PayPal**: PayPal, Credit Cards
-- **Square**: Credit cards, ACH
-- **Bank Transfer**: Manual processing
-- **Cryptocurrency**: Bitcoin, Ethereum (optional)
+1. Customer selects product/tier on Qwik
+2. Qwik calls Laravel to create Checkout Session (or PaymentIntent)
+3. Stripe hosts payment
+4. Webhook `checkout.session.completed` → Laravel issues license in a DB transaction
+5. Queued email with license key
+6. Customer activates via portal or product plugin
 
-### 9.2 Payment Flow
+### 8.2 Subscriptions
 
-```
-1. Customer selects license/product
-2. Adds to cart
-3. Proceeds to checkout
-4. Enters payment information
-5. Payment processed
-6. License key generated automatically
-7. Email sent with license key
-8. Customer activates license
-```
-
-### 9.3 Subscription Management
-
-```php
-{
-    "subscription_id": "sub_1234567890",
-    "customer_id": 456,
-    "license_id": 789,
-    "product_id": 1,
-    "plan_id": 1,
-    "status": "active|canceled|past_due",
-    "current_period_start": "2024-01-15",
-    "current_period_end": "2025-01-15",
-    "cancel_at_period_end": false,
-    "trial_end": null
-}
-```
+Store Stripe `subscription_id` on license/payment meta. Renewals extend `expires_at` / `support_expires_at` via webhooks. Handle `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`.
 
 ---
 
-## 10. White-Label System
+## 9. Notifications & events
 
-### 10.1 White-Label Features
+| Event | Channel |
+|---|---|
+| License activated / expiring / expired / suspended | Email (+ webhook) |
+| Ticket created / replied / resolved | Email (+ optional Slack later) |
+| Payment succeeded / failed | Email |
 
-- **Custom Branding**: Logo, colors, domain
-- **Custom Domain**: `licenses.yourdomain.com`
-- **Custom Email**: Support emails from your domain
-- **Custom Portal**: Branded customer portal
-- **API Access**: Full API access for integration
+Use Laravel Notifications + queued listeners. Keep templates in Markdown/Blade mailables.
 
-### 10.2 Multi-Tenant Architecture
+---
 
-```php
-{
-    "tenant_id": 1,
-    "name": "Your Company",
-    "domain": "licenses.yourcompany.com",
-    "logo_url": "https://cdn.example.com/logos/yourcompany.png",
-    "primary_color": "#0073aa",
-    "support_email": "support@yourcompany.com",
-    "status": "active"
-}
+## 10. Security & compliance
+
+- HTTPS everywhere; HSTS at edge
+- Sanctum tokens + API key hashing (store secret hashes only)
+- Policies on every admin/API action
+- Rate limit validate/activate aggressively
+- CSRF for Filament; token auth for API
+- Validate/sanitize uploads (MIME, size, virus scan optional)
+- Audit log for license status changes and admin impersonation-sensitive actions
+- GDPR: export/delete customer data flows
+- PCI: never store card data — Stripe only
+
+---
+
+## 11. Integrations
+
+### 11.1 WordPress (example)
+
+Plugin calls:
+
+```
+POST /api/v1/licenses/validate
+POST /api/v1/licenses/activate
+POST /api/v1/licenses/deactivate
 ```
 
----
+with API key headers. Cache successful validation briefly client-side; always re-check on critical paths.
 
-## 11. Notification System
+### 11.2 SDKs (later)
 
-### 11.1 Email Notifications
-
-**License Events:**
-- License activated
-- License expired
-- License expiring soon (30, 7, 1 day)
-- License suspended
-- License transferred
-
-**Support Events:**
-- New ticket created
-- Ticket replied
-- Ticket assigned
-- Ticket resolved
-- Ticket closed
-
-**Payment Events:**
-- Payment received
-- Payment failed
-- Invoice generated
-- Subscription renewed
-- Subscription canceled
-
-### 11.2 Notification Channels
-
-- **Email**: Primary channel
-- **SMS**: Optional (Twilio integration)
-- **Push Notifications**: Mobile apps
-- **Webhooks**: Custom integrations
-- **Slack/Discord**: Team notifications
+Thin clients: PHP, JS. Generate from OpenAPI when API stabilizes.
 
 ---
 
-## 12. Analytics & Reporting
+## 12. Multi-tenant / white-label (phase later)
 
-### 12.1 Key Metrics
+Not required for MVP. When needed:
 
-**License Metrics:**
-- Total licenses sold
-- Active licenses
-- Expired licenses
-- Renewal rate
-- Activation rate
-- License type distribution
+- `tenants` table + `tenant_id` on products/customers
+- Branding settings (logo, colors, custom domain)
+- Filament tenant switcher or separate admin domains
+- Qwik reads public branding from API
 
-**Support Metrics:**
-- Total tickets
-- Open tickets
-- Average resolution time
-- First response time
-- Customer satisfaction score
-- Tickets by category/priority
-
-**Revenue Metrics:**
-- Total revenue
-- Monthly recurring revenue (MRR)
-- Average order value
-- Customer lifetime value
-- Churn rate
-- Revenue by product
-
-### 12.2 Reports
-
-- **License Report**: All licenses with status
-- **Support Report**: Ticket statistics
-- **Revenue Report**: Financial overview
-- **Customer Report**: Customer activity
-- **Product Report**: Product performance
+Until then, run as **single-tenant** to reduce complexity.
 
 ---
 
-## 13. Security Features
+## 13. Analytics (MVP → later)
 
-### 13.1 Security Measures
+**MVP (Filament widgets + SQL):** license counts, ticket SLA, Stripe revenue.
 
-- **HTTPS Only**: All communications encrypted
-- **API Rate Limiting**: Prevent abuse
-- **IP Whitelisting**: Optional IP restrictions
-- **Two-Factor Authentication**: For admin accounts
-- **Audit Logging**: Track all actions
-- **Data Encryption**: Sensitive data encrypted at rest
-- **Regular Backups**: Automated daily backups
-- **DDoS Protection**: Cloudflare protection
-- **SQL Injection Prevention**: Parameterized queries
-- **XSS Protection**: Input sanitization
-
-### 13.2 Compliance
-
-- **GDPR**: EU data protection compliance
-- **CCPA**: California privacy compliance
-- **SOC 2**: Security compliance (optional)
-- **PCI DSS**: Payment card compliance
+**Later:** cohort retention, churn, product funnels; warehouse export if needed.
 
 ---
 
-## 14. Integration Options
+## 14. Implementation phases (optimized)
 
-### 14.1 WordPress Integration
+### Phase 1 — Laravel foundation (1–2 weeks)
+- [ ] Laravel app, MySQL, Redis, queues
+- [ ] Models/migrations for products, customers, licenses, tickets
+- [ ] Sanctum customer auth endpoints
+- [ ] Filament install + admin users/roles
+- [ ] Health endpoint + OpenAPI draft
 
-```php
-// WordPress Plugin Integration
-class Your_Plugin_License_Manager {
-    private $api_url = 'https://license-server.com/api/v1';
-    private $api_key = 'your_api_key';
-    
-    public function validate_license($license_key) {
-        // Call license server API
-    }
-    
-    public function activate_license($license_key, $domain) {
-        // Activate license via API
-    }
-}
-```
+### Phase 2 — License engine (2–3 weeks)
+- [ ] Key generation service
+- [ ] Validate / activate / deactivate
+- [ ] Activation types + limits
+- [ ] Transfer + renew stubs
+- [ ] Filament license resources + bulk actions
 
-### 14.2 Webhook Integration
+### Phase 3 — Support (2 weeks)
+- [ ] Tickets, replies, attachments
+- [ ] Assignment + internal notes
+- [ ] Customer ticket API
+- [ ] Filament ticket desk + notifications
 
-```php
-// Webhook Events
-POST /webhooks/license-activated
-POST /webhooks/license-expired
-POST /webhooks/ticket-created
-POST /webhooks/payment-received
-```
-
-### 14.3 SDK Libraries
-
-- **PHP SDK**: For PHP applications
-- **JavaScript SDK**: For web applications
-- **Python SDK**: For Python applications
-- **Node.js SDK**: For Node.js applications
-
----
-
-## 15. Implementation Phases
-
-### Phase 1: Core Infrastructure (Weeks 1-4)
-- [ ] Set up development environment
-- [ ] Database schema design and implementation
-- [ ] User authentication system
-- [ ] Basic API structure
-- [ ] Admin dashboard foundation
-
-### Phase 2: License Management (Weeks 5-8)
-- [ ] License generation system
-- [ ] License activation/deactivation
-- [ ] License validation API
-- [ ] Domain/Machine ID verification
-- [ ] License transfer system
-
-### Phase 3: Support System (Weeks 9-12)
-- [ ] Ticket creation and management
-- [ ] Ticket assignment system
-- [ ] Reply system with attachments
-- [ ] Email notifications
-- [ ] SLA tracking
-
-### Phase 4: Customer Portal (Weeks 13-16)
-- [ ] Customer registration/login
-- [ ] License management interface
-- [ ] Ticket management interface
-- [ ] Invoice/payment history
+### Phase 4 — Qwik portal (2–3 weeks)
+- [ ] Qwik City scaffold + API client
+- [ ] Auth pages + dashboard
+- [ ] Licenses + tickets UX
 - [ ] Profile management
 
-### Phase 5: Payment Integration (Weeks 17-20)
-- [ ] Stripe integration
-- [ ] PayPal integration
-- [ ] Invoice generation
-- [ ] Subscription management
-- [ ] Payment webhooks
+### Phase 5 — Payments (2 weeks)
+- [ ] Stripe Checkout + webhooks
+- [ ] Auto license issuance
+- [ ] Invoice/history in portal + Filament
 
-### Phase 6: Advanced Features (Weeks 21-24)
-- [ ] Analytics dashboard
-- [ ] Reporting system
-- [ ] White-label system
-- [ ] API documentation
-- [ ] SDK development
+### Phase 6 — Harden & launch (2 weeks)
+- [ ] Feature tests for license + ticket flows
+- [ ] Rate limits, audit log, backups
+- [ ] Perf pass (indexes, N+1, queue tuning)
+- [ ] Docs for WP integration
+- [ ] Beta → production
 
-### Phase 7: Testing & Launch (Weeks 25-28)
-- [ ] Unit testing
-- [ ] Integration testing
-- [ ] Security audit
-- [ ] Performance optimization
-- [ ] Documentation
-- [ ] Beta testing
-- [ ] Production launch
+### Phase 7 — Expand (post-MVP)
+- [ ] PayPal, Meilisearch, Slack
+- [ ] White-label / multi-tenant
+- [ ] SDKs, usage analytics, AI ticket routing
 
 ---
 
-## 16. Pricing Model
+## 15. Success metrics
 
-### 16.1 Platform Pricing (SaaS)
-
-**Starter Plan**: $99/month
-- Up to 100 licenses
-- Up to 50 tickets/month
-- Email support
-- Basic analytics
-
-**Professional Plan**: $299/month
-- Up to 1,000 licenses
-- Up to 500 tickets/month
-- Priority support
-- Advanced analytics
-- API access
-
-**Enterprise Plan**: $999/month
-- Unlimited licenses
-- Unlimited tickets
-- Dedicated support
-- White-label option
-- Custom integrations
-- SLA guarantee
-
-### 16.2 Revenue Share Model (Alternative)
-
-- Platform takes 5-10% of each license sale
-- No monthly fees
-- Pay-as-you-go model
+| Area | Target |
+|---|---|
+| API p95 (validate/activate) | < 200ms (cached where safe) |
+| Uptime | 99.9% |
+| License activation success | > 98% |
+| First response (urgent) | < 1 hour |
+| Portal LCP (Qwik) | Strong Core Web Vitals on marketing pages |
 
 ---
 
-## 17. Success Metrics
+## 16. Decisions log (optimizations vs old wireframe)
 
-### 17.1 Business Metrics
-- Monthly recurring revenue (MRR)
-- Customer acquisition cost (CAC)
-- Customer lifetime value (LTV)
-- Churn rate
-- Net promoter score (NPS)
-
-### 17.2 Technical Metrics
-- API response time
-- System uptime (99.9% target)
-- Ticket resolution time
-- License activation success rate
-- Error rate
+| Old idea | New decision |
+|---|---|
+| Laravel **or** Node | **Laravel only** for backend |
+| React/Vue admin SPA | **Filament admin inside Laravel** |
+| Next/Nuxt portal | **Qwik City** portal |
+| REST + GraphQL | **REST only** until a real GraphQL need |
+| RabbitMQ / Elasticsearch day one | **Redis queues + MySQL**; add search later |
+| Many payment gateways | **Stripe first** |
+| Key encodes machine/domain | **Opaque keys** + activations table |
+| White-label in core phases | **Post-MVP** |
+| Duplicate admin JSON CRUD | Prefer **Filament**; API for customers/integrations |
 
 ---
 
-## 18. Future Enhancements
+## 17. Next steps
 
-### 18.1 Advanced Features
-- AI-powered ticket routing
-- Automated license renewal
-- Usage analytics
-- A/B testing for pricing
-- Multi-language support
-- Mobile apps (iOS/Android)
-
-### 18.2 Integrations
-- Zapier integration
-- Slack integration
-- Discord integration
-- Shopify integration
-- WooCommerce integration
-- Custom CRM integration
+1. Confirm Filament vs Livewire-custom admin (default: **Filament 3**)
+2. Confirm Qwik SSR host (Node adapter vs static + client auth)
+3. Freeze OpenAPI for `/api/v1` auth + license endpoints
+4. Start Phase 1 against this wireframe
+5. Retire parallel Vue admin / Nuxt portal plans in favor of Laravel admin + Qwik site
 
 ---
 
 ## Conclusion
 
-This universal license management and support ticket platform provides a comprehensive solution for managing software licenses and customer support for any type of software product. The system is designed to be scalable, secure, and user-friendly while supporting multiple product types and business models.
-
-**Key Advantages:**
-- Universal product support
-- Comprehensive ticket system
-- Multi-tenant architecture
-- White-label capabilities
-- Robust API system
-- Scalable infrastructure
-
-**Next Steps:**
-1. Review and refine wireframe
-2. Create detailed technical specifications
-3. Set up development team
-4. Begin Phase 1 implementation
-5. Establish timeline and milestones
-
+ULSP is a **Laravel core** (API + Filament admin + jobs) with a **Qwik City** customer front. That split maximizes admin speed and backend correctness while giving customers a fast, SEO-friendly portal — without running three overlapping frontend stacks.
