@@ -4,10 +4,16 @@
 
 /vendor
 /backend/vendor
+# Local-only snapshots of previous apps (kept on disk, not in git)
+/archive/
 
 /node_modules
-/admin-dashboard/node_modules
 /site-front/node_modules
+/site-front/dist
+/site-front/server
+/site-front/.env
+/site-front/.env.*
+!/site-front/.env.example
 
 /backend/storage/*.key
 /backend/storage/app/*
@@ -17,21 +23,12 @@
 /backend/storage/logs/*
 
 /backend/.env
-/backend/.env.*
+/backend/.env.backup
+/backend/.env.production
+!/backend/.env.example
 
 /backend/public/storage
-
-/site-front/.nuxt
-/site-front/.output
-/site-front/.nitro
-
-/admin-dashboard/dist
-/admin-dashboard/.vite
-/admin-dashboard/.env
-/admin-dashboard/.env.*
-!/admin-dashboard/.env.example
+/backend/public/hot
 
 composer.lock
 package-lock.json
-
-

@@ -1,6 +1,11 @@
-# Laravel CORS Configuration for Localhost
+# Laravel + Nuxt + Vue CORS Playbook
 
-This document explains how CORS (Cross-Origin Resource Sharing) is configured in this Laravel application to accept API calls from localhost during development.
+Abstract, repeatable steps to avoid CORS issues for any stack with:
+- Laravel backend (API + Sanctum)
+- Nuxt site-front
+- Vue admin dashboard (Vite/SPA)
+
+Use this as a checklist for new projects and environments.
 
 ## Overview
 
@@ -186,4 +191,49 @@ For production environments:
 - [Laravel CORS Documentation](https://laravel.com/docs/cors)
 - [MDN CORS Guide](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
 - [Laravel Sanctum Documentation](https://laravel.com/docs/sanctum)
+
+---
+
+# Frontend (Nuxt & Vue) CORS Checklist
+
+Follow these steps in every project that uses Laravel as API + Nuxt (site) + Vue (admin).
+
+## 1) Align API base URLs
+- Nuxt: set `runtimeConfig.public.apiBase` to your Laravel origin (dev: `http://localhost:8000`).
+- Vue/Vite admin: set `VITE_API_BASE_URL` to the same origin.
+- Always call the API with that base URL (no mixed ports).
+
+## 2) Match credentials settings
+- In Laravel CORS, keep `supports_credentials = true` and list explicit origins (no `*`).
+- In frontends:
+  - Fetch/`useFetch`: `credentials: 'include'`.
+  - Axios: `withCredentials: true`.
+- Ensure cookies are on the same scheme/host/port list as `SANCTUM_STATEFUL_DOMAINS`.
+
+## 3) Allowed origins (dev and prod)
+- Dev: `http://localhost:3000` (Nuxt), `http://localhost:5173` (Vite Vue), plus `http://localhost:8000` for direct calls.
+- Prod: set `FRONTEND_URL` (Nuxt site) and `ADMIN_URL` (Vue admin) domains explicitly in Laravel CORS.
+
+## 4) Preflight sanity
+- Methods: allow `GET, POST, PUT, PATCH, DELETE, OPTIONS`.
+- Headers: allow `Content-Type, Authorization, X-Requested-With, Accept`.
+- If sending custom headers, add them to `allowed_headers`.
+
+## 5) Dev proxy option (optional but helpful)
+- If you prefer same-origin during dev:
+  - Nuxt `vite.server.proxy`: proxy `/api` to `http://localhost:8000`.
+  - Vue/Vite `server.proxy`: proxy `/api` to `http://localhost:8000`.
+- Keep API calls relative (e.g., `/api/...`) when using proxy.
+
+## 6) Cache and restart
+- After CORS changes in Laravel: `php artisan config:clear` and restart the server.
+- For Nuxt/Vite: restart the dev servers so proxy/runtime config picks up changes.
+
+## 7) Quick smoke test
+- From Nuxt/Vue console:
+  ```js
+  await $fetch('/api/ping', { baseURL: useRuntimeConfig().public.apiBase, credentials: 'include' })
+  // or Axios: axios.get('/api/ping', { baseURL: import.meta.env.VITE_API_BASE_URL, withCredentials: true })
+  ```
+- Check Network tab: response should include `Access-Control-Allow-Origin` matching your frontend origin and `Set-Cookie` when applicable.
 

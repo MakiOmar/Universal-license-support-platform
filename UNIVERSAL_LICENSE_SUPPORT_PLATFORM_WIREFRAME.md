@@ -40,7 +40,7 @@ Product-agnostic SaaS for **license management** and **support tickets**. One La
 
 | Layer | Choice | Why |
 |---|---|---|
-| Backend + Admin | **Laravel 11+** with **Filament 3** | One codebase for API + admin; Filament gives CRUD, filters, policies, and auth without a second SPA |
+| Backend + Admin | **Laravel 12+** with **Filament 4** | One codebase for API + admin; Filament gives CRUD, filters, policies, and auth without a second SPA |
 | Customer site | **Qwik City** | Resumable UI, excellent TTFB/SEO for marketing + portal; talks to Laravel over REST |
 | Database | **MySQL 8+** (PostgreSQL optional later) | Matches common WAMP/VPS hosting; Laravel first-class support |
 | Cache / queues | **Redis** + Laravel queues | Enough for jobs, rate limits, and sessions; avoid RabbitMQ until needed |
@@ -573,7 +573,7 @@ Until then, run as **single-tenant** to reduce complexity.
 
 ## 17. Next steps
 
-1. Confirm Filament vs Livewire-custom admin (default: **Filament 3**)
+1. Confirm Filament vs Livewire-custom admin (default: **Filament 4**)
 2. Confirm Qwik SSR host (Node adapter vs static + client auth)
 3. Freeze OpenAPI for `/api/v1` auth + license endpoints
 4. Start Phase 1 against this wireframe

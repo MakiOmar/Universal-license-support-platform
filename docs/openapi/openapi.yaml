@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: ULSP API
+  version: 1.0.0
+  description: Universal License Support Platform — customer and integration API
+servers:
+  - url: http://127.0.0.1:8000/api/v1
+paths:
+  /health:
+    get:
+      summary: Health check (Laravel /up is separate)
+      responses:
+        '200':
+          description: OK
+  /auth/register:
+    post:
+      summary: Register customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                first_name: { type: string }
+                last_name: { type: string }
+      responses:
+        '201':
+          description: Created
+  /auth/login:
+    post:
+      summary: Customer login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Token + customer
+  /auth/forgot-password:
+    post:
+      summary: Request password reset
+      responses:
+        '200':
+          description: Accepted
+  /auth/reset-password:
+    post:
+      summary: Reset password
+      responses:
+        '200':
+          description: Password updated
+  /products:
+    get:
+      summary: List products
+      responses:
+        '200':
+          description: Product collection
+  /products/{product}:
+    get:
+      summary: Show product by id or slug
+      parameters:
+        - in: path
+          name: product
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product
+  /customer/me:
+    get:
+      summary: Current customer
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Customer
+  /customer/profile:
+    put:
+      summary: Update profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Updated
+  /customer/licenses:
+    get:
+      summary: List customer licenses
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Licenses
+  /customer/licenses/{license}:
+    get:
+      summary: Show license
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: license
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: License
+  /customer/tickets:
+    get:
+      summary: List tickets
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Tickets
+    post:
+      summary: Create ticket
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201':
+          description: Created
+  /customer/tickets/{ticket}:
+    get:
+      summary: Show ticket
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: ticket
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Ticket
+  /customer/tickets/{ticket}/replies:
+    post:
+      summary: Reply to ticket
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: ticket
+          required: true
+          schema: { type: integer }
+      responses:
+        '201':
+          description: Reply created
+  /checkout/session:
+    post:
+      summary: Create Stripe Checkout session
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pricing_tier_id]
+              properties:
+                pricing_tier_id: { type: integer }
+      responses:
+        '200':
+          description: Checkout URL
+  /licenses/validate:
+    post:
+      summary: Validate license (integration)
+      security: [{ apiKey: [] }]
+      responses:
+        '200':
+          description: Validation result
+  /licenses/activate:
+    post:
+      summary: Activate license (integration)
+      security: [{ apiKey: [] }]
+      responses:
+        '200':
+          description: Activation result
+  /licenses/deactivate:
+    post:
+      summary: Deactivate license binding
+      security: [{ apiKey: [] }]
+      responses:
+        '200':
+          description: Deactivated
+  /webhooks/payment/stripe:
+    post:
+      summary: Stripe webhook
+      responses:
+        '200':
+          description: Handled
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key

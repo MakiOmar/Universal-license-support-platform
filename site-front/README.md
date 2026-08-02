@@ -1,75 +1,65 @@
-# Nuxt Minimal Starter
+# Qwik City App ⚡️
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+- [Qwik Docs](https://qwik.dev/)
+- [Discord](https://qwik.dev/chat)
+- [Qwik GitHub](https://github.com/QwikDev/qwik)
+- [@QwikDev](https://twitter.com/QwikDev)
+- [Vite](https://vitejs.dev/)
 
-## Setup
+---
 
-Make sure to install dependencies:
+## Project Structure
 
-```bash
-# npm
-npm install
+This project is using Qwik with [QwikCity](https://qwik.dev/qwikcity/overview/). QwikCity is just an extra set of tools on top of Qwik to make it easier to build a full site, including directory-based routing, layouts, and more.
 
-# pnpm
-pnpm install
+Inside your project, you'll see the following directory structure:
 
-# yarn
-yarn install
-
-# bun
-bun install
+```
+├── public/
+│   └── ...
+└── src/
+    ├── components/
+    │   └── ...
+    └── routes/
+        └── ...
 ```
 
-## Development Server
+- `src/routes`: Provides the directory-based routing, which can include a hierarchy of `layout.tsx` layout files, and an `index.tsx` file as the page. Additionally, `index.ts` files are endpoints. Please see the [routing docs](https://qwik.dev/qwikcity/routing/overview/) for more info.
 
-Start the development server on `http://localhost:3000`:
+- `src/components`: Recommended directory for components.
 
-```bash
-# npm
-npm run dev
+- `public`: Any static assets, like images, can be placed in the public directory. Please see the [Vite public directory](https://vitejs.dev/guide/assets.html#the-public-directory) for more info.
 
-# pnpm
-pnpm dev
+## Add Integrations and deployment
 
-# yarn
-yarn dev
+Use the `npm run qwik add` command to add additional integrations. Some examples of integrations includes: Cloudflare, Netlify or Express Server, and the [Static Site Generator (SSG)](https://qwik.dev/qwikcity/guides/static-site-generation/).
 
-# bun
-bun run dev
+```shell
+npm run qwik add # or `yarn qwik add`
+```
+
+## Development
+
+Development mode uses [Vite's development server](https://vitejs.dev/). The `dev` command will server-side render (SSR) the output during development.
+
+```shell
+npm start # or `yarn start`
+```
+
+> Note: during dev mode, Vite may request a significant number of `.js` files. This does not represent a Qwik production build.
+
+## Preview
+
+The preview command will create a production build of the client modules, a production build of `src/entry.preview.tsx`, and run a local server. The preview server is only for convenience to preview a production build locally and should not be used as a production server.
+
+```shell
+npm run preview # or `yarn preview`
 ```
 
 ## Production
 
-Build the application for production:
+The production build will generate client and server modules by running both client and server build commands. The build command will use Typescript to run a type check on the source code.
 
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+```shell
+npm run build # or `yarn build`
 ```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
