@@ -31,8 +31,10 @@ class LicenseService
                 ?? $tier?->max_activations
                 ?? 1;
 
-            $billingCycle = $tier?->billing_cycle ?? 'yearly';
-            $expiresAt = $options['expires_at'] ?? now()->add($this->billingCycleInterval($billingCycle));
+            $billingCycle = $tier?->billing_cycle ?? PricingTier::BILLING_YEARLY;
+            $expiresAt = array_key_exists('expires_at', $options)
+                ? $options['expires_at']
+                : $this->expiresAtForBillingCycle($billingCycle);
 
             return License::create([
                 'license_key' => $licenseKey,
@@ -43,7 +45,9 @@ class LicenseService
                 'status' => $options['status'] ?? License::STATUS_ACTIVE,
                 'purchased_at' => $options['purchased_at'] ?? now(),
                 'expires_at' => $expiresAt,
-                'support_expires_at' => $options['support_expires_at'] ?? $expiresAt,
+                'support_expires_at' => array_key_exists('support_expires_at', $options)
+                    ? $options['support_expires_at']
+                    : $expiresAt,
             ]);
         });
     }
@@ -195,7 +199,22 @@ class LicenseService
 
     public function renew(License $license, ?PricingTier $tier = null): License
     {
-        $billingCycle = $tier?->billing_cycle ?? $license->pricingTier?->billing_cycle ?? 'yearly';
+        $billingCycle = $tier?->billing_cycle
+            ?? $license->pricingTier?->billing_cycle
+            ?? PricingTier::BILLING_YEARLY;
+
+        // One-time / lifetime licenses stay non-expiring.
+        if (in_array($billingCycle, [PricingTier::BILLING_ONE_TIME, PricingTier::BILLING_LIFETIME], true)) {
+            $license->update([
+                'pricing_tier_id' => $tier?->id ?? $license->pricing_tier_id,
+                'status' => License::STATUS_ACTIVE,
+                'expires_at' => null,
+                'support_expires_at' => null,
+            ]);
+
+            return $license->fresh();
+        }
+
         $baseDate = $license->expires_at && $license->expires_at->isFuture()
             ? $license->expires_at
             : now();
@@ -217,11 +236,20 @@ class LicenseService
         return $license->fresh();
     }
 
+    protected function expiresAtForBillingCycle(string $cycle): ?\DateTimeInterface
+    {
+        if (in_array($cycle, [PricingTier::BILLING_ONE_TIME, PricingTier::BILLING_LIFETIME], true)) {
+            return null;
+        }
+
+        return now()->add($this->billingCycleInterval($cycle));
+    }
+
     protected function billingCycleInterval(string $cycle): \DateInterval
     {
         return match ($cycle) {
-            'monthly' => new \DateInterval('P1M'),
-            'lifetime' => new \DateInterval('P100Y'),
+            PricingTier::BILLING_MONTHLY => new \DateInterval('P1M'),
+            PricingTier::BILLING_YEARLY => new \DateInterval('P1Y'),
             default => new \DateInterval('P1Y'),
         };
     }

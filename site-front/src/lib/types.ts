@@ -19,6 +19,9 @@ export interface PricingTier {
   currency: string;
   max_activations?: number;
   billing_cycle?: string;
+  billing_cycle_label?: string;
+  is_recurring?: boolean;
+  is_one_time?: boolean;
 }
 
 export interface Product {

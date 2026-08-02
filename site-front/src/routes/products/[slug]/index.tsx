@@ -102,7 +102,11 @@ export default component$(() => {
                         <p style={{ fontSize: "1.25rem", fontWeight: 700 }}>
                           {tier.currency} {tier.price}
                         </p>
-                        {tier.billing_cycle ? <p style={{ color: "var(--color-muted)" }}>{tier.billing_cycle}</p> : null}
+                        {tier.billing_cycle_label || tier.billing_cycle ? (
+                          <p style={{ color: "var(--color-muted)" }}>
+                            {tier.billing_cycle_label || tier.billing_cycle}
+                          </p>
+                        ) : null}
                         {tier.max_activations ? <p>Up to {tier.max_activations} activations</p> : null}
                         <button
                           type="button"

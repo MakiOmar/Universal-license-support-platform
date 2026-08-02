@@ -53,14 +53,12 @@ class PricingTierResource extends Resource
                     ->default(1),
                 Select::make('billing_cycle')
                     ->required()
-                    ->options([
-                        'monthly' => 'Monthly',
-                        'yearly' => 'Yearly',
-                        'lifetime' => 'Lifetime',
-                    ])
-                    ->default('yearly'),
+                    ->options(PricingTier::billingCycleOptions())
+                    ->default(PricingTier::BILLING_YEARLY)
+                    ->helperText('One-time and lifetime are single payments (no subscription). License does not expire.'),
                 TextInput::make('stripe_price_id')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->helperText('Optional. For recurring tiers use a Stripe recurring Price ID; for one-time use a one-time Price ID.'),
                 Toggle::make('is_active')
                     ->default(true),
             ]);
@@ -80,7 +78,8 @@ class PricingTierResource extends Resource
                     ->sortable(),
                 TextColumn::make('max_activations'),
                 TextColumn::make('billing_cycle')
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => PricingTier::billingCycleOptions()[$state] ?? (string) $state),
                 IconColumn::make('is_active')
                     ->boolean(),
             ])

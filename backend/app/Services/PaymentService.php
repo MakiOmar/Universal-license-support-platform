@@ -42,21 +42,35 @@ class PaymentService
             'status' => Payment::STATUS_PENDING,
         ]);
 
-        $lineItem = $tier->stripe_price_id
-            ? ['price' => $tier->stripe_price_id, 'quantity' => 1]
-            : [
-                'price_data' => [
-                    'currency' => strtolower($tier->currency),
-                    'unit_amount' => (int) round($tier->price * 100),
-                    'product_data' => [
-                        'name' => $tier->product->name.' — '.$tier->name,
-                    ],
+        $isRecurring = $tier->isRecurring();
+
+        if ($tier->stripe_price_id) {
+            $lineItem = ['price' => $tier->stripe_price_id, 'quantity' => 1];
+        } else {
+            $priceData = [
+                'currency' => strtolower($tier->currency),
+                'unit_amount' => (int) round($tier->price * 100),
+                'product_data' => [
+                    'name' => $tier->product->name.' — '.$tier->name,
                 ],
-                'quantity' => 1,
             ];
 
+            // Recurring Stripe Checkout requires a recurring price interval.
+            if ($isRecurring) {
+                $priceData['recurring'] = [
+                    'interval' => $tier->billing_cycle === PricingTier::BILLING_MONTHLY ? 'month' : 'year',
+                ];
+            }
+
+            $lineItem = [
+                'price_data' => $priceData,
+                'quantity' => 1,
+            ];
+        }
+
         return Session::create([
-            'mode' => 'payment',
+            // One-time / lifetime → single payment; monthly / yearly → subscription.
+            'mode' => $isRecurring ? 'subscription' : 'payment',
             'customer_email' => $customer->email,
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
@@ -66,6 +80,7 @@ class PaymentService
                 'customer_id' => (string) $customer->id,
                 'pricing_tier_id' => (string) $tier->id,
                 'product_id' => (string) $tier->product_id,
+                'billing_cycle' => (string) $tier->billing_cycle,
             ],
         ]);
     }
