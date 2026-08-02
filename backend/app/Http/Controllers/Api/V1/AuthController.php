@@ -3,165 +3,96 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Api\V1\Auth\LoginRequest;
+use App\Http\Requests\Api\V1\Auth\RegisterRequest;
+use App\Http\Requests\Api\V1\Auth\ResetPasswordRequest;
+use App\Http\Requests\Api\V1\Auth\UpdateProfileRequest;
+use App\Http\Resources\Api\V1\CustomerResource;
 use App\Models\Customer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'email' => ['required', 'email', 'max:255', 'unique:customers,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'first_name' => ['nullable', 'string', 'max:100'],
-            'last_name' => ['nullable', 'string', 'max:100'],
-            'company' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        $customer = Customer::create([
-            'email' => $data['email'],
-            'password_hash' => Hash::make($data['password']),
-            'first_name' => $data['first_name'] ?? null,
-            'last_name' => $data['last_name'] ?? null,
-            'company' => $data['company'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'status' => 'active',
-        ]);
-
-        $token = $this->generateToken($customer);
+        $customer = Customer::create($request->validated());
+        $token = $customer->createToken('auth')->plainTextToken;
 
         return response()->json([
-            'customer' => new \App\Http\Resources\Api\V1\CustomerResource($customer),
+            'customer' => new CustomerResource($customer),
             'token' => $token,
-            'token_type' => 'Bearer',
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
-
         $customer = Customer::where('email', $request->email)->first();
 
-        if (! $customer || ! Hash::check($request->password, $customer->password_hash)) {
+        if (! $customer || ! Hash::check($request->password, $customer->password)) {
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+                'email' => [__('The provided credentials are incorrect.')],
             ]);
         }
 
         if ($customer->status !== 'active') {
-            return response()->json([
-                'message' => 'Account is not active.',
-            ], 403);
-        }
-
-        $token = $this->generateToken($customer);
-
-        return response()->json([
-            'customer' => new \App\Http\Resources\Api\V1\CustomerResource($customer),
-            'token' => $token,
-            'token_type' => 'Bearer',
-        ]);
-    }
-
-    public function forgotPassword(Request $request)
-    {
-        $request->validate([
-            'email' => ['required', 'email'],
-        ]);
-
-        $customer = Customer::where('email', $request->email)->first();
-
-        if (! $customer) {
-            // Don't reveal if email exists
-            return response()->json([
-                'message' => 'If the email exists, a password reset link has been sent.',
+            throw ValidationException::withMessages([
+                'email' => [__('Your account is not active.')],
             ]);
         }
 
-        // Generate reset token (in production, store in password_resets table)
-        $resetToken = Str::random(64);
-        // Store in cache for 1 hour
-        \Illuminate\Support\Facades\Cache::put(
-            "password_reset_{$customer->id}",
-            $resetToken,
-            now()->addHour()
-        );
-
-        // Generate reset URL
-        $resetUrl = config('app.frontend_url', 'http://localhost:3000') . '/reset-password?token=' . $resetToken . '&email=' . urlencode($customer->email);
-
-        // Send password reset email via queue for better performance
-        \App\Jobs\SendEmailJob::dispatch(
-            new \App\Mail\PasswordResetMail($customer, $resetToken, $resetUrl),
-            $customer->email
-        );
+        $token = $customer->createToken('auth')->plainTextToken;
 
         return response()->json([
-            'message' => 'If the email exists, a password reset link has been sent.',
+            'customer' => new CustomerResource($customer),
+            'token' => $token,
         ]);
     }
 
-    public function resetPassword(Request $request)
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-            'token' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        Password::broker('customers')->sendResetLink($request->only('email'));
+
+        return response()->json([
+            'message' => __('If that email exists, a reset link has been sent.'),
         ]);
+    }
 
-        $customer = Customer::where('email', $request->email)->firstOrFail();
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $status = Password::broker('customers')->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (Customer $customer, string $password): void {
+                $customer->forceFill(['password' => $password])->save();
+            },
+        );
 
-        $storedToken = \Illuminate\Support\Facades\Cache::get("password_reset_{$customer->id}");
-
-        if (! $storedToken || $storedToken !== $request->token) {
-            return response()->json([
-                'message' => 'Invalid or expired reset token.',
-            ], 400);
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => [__($status)],
+            ]);
         }
 
-        $customer->password_hash = Hash::make($request->password);
-        $customer->save();
-
-        \Illuminate\Support\Facades\Cache::forget("password_reset_{$customer->id}");
-
-        return response()->json([
-            'message' => 'Password reset successfully.',
-        ]);
+        return response()->json(['message' => __('Password reset successfully.')]);
     }
 
-    /**
-     * Get authenticated customer info
-     */
-    public function me(Request $request)
+    public function me(Request $request): CustomerResource
     {
+        return new CustomerResource($request->user());
+    }
+
+    public function updateProfile(UpdateProfileRequest $request): CustomerResource
+    {
+        /** @var Customer $customer */
         $customer = $request->user();
-        
-        return new \App\Http\Resources\Api\V1\CustomerResource($customer);
-    }
+        $data = $request->validated();
 
-    protected function generateToken(Customer $customer): string
-    {
-        // Simple token generation (in production, use Laravel Sanctum or JWT)
-        // Using secure random token with sufficient length
-        $token = Str::random(80);
-        
-        // Store token in cache with expiration (30 days)
-        // In production, consider using database for token storage
-        \Illuminate\Support\Facades\Cache::put(
-            "customer_token_{$token}",
-            $customer->id,
-            now()->addDays(30)
-        );
+        $customer->update($data);
 
-        return $token;
+        return new CustomerResource($customer->fresh());
     }
 }
-

@@ -3,46 +3,64 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Customer extends Model
+class Customer extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'email',
+        'password',
         'first_name',
         'last_name',
         'company',
         'phone',
-        'password_hash',
         'status',
+        'email_verified_at',
     ];
 
-    public function licenses()
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function licenses(): HasMany
     {
         return $this->hasMany(License::class);
     }
 
-    public function supportTickets()
+    public function tickets(): HasMany
     {
         return $this->hasMany(SupportTicket::class);
     }
 
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
     }
 
-    public function apiKeys()
+    public function apiKeys(): HasMany
     {
         return $this->hasMany(ApiKey::class);
     }
 
-    public function activities()
+    public function getFullNameAttribute(): string
     {
-        return $this->hasMany(CustomerActivity::class)->orderByDesc('created_at');
+        $name = trim(($this->first_name ?? '').' '.($this->last_name ?? ''));
+
+        return $name !== '' ? $name : $this->email;
     }
 }
-
-

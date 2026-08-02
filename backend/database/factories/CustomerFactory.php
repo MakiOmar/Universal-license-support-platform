@@ -15,15 +15,11 @@ class CustomerFactory extends Factory
     public function definition(): array
     {
         return [
-            'email' => $this->faker->unique()->safeEmail(),
-            'first_name' => $this->faker->firstName(),
-            'last_name' => $this->faker->lastName(),
-            'company' => $this->faker->company(),
-            'phone' => $this->faker->phoneNumber(),
-            'password_hash' => null,
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password',
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
             'status' => 'active',
         ];
     }
 }
-
-

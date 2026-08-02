@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TicketAttachment extends Model
 {
@@ -12,22 +13,21 @@ class TicketAttachment extends Model
     protected $fillable = [
         'ticket_id',
         'reply_id',
+        'disk',
+        'path',
         'filename',
-        'file_path',
-        'file_size',
-        'mime_type',
+        'size',
+        'mime',
         'uploaded_by',
     ];
 
-    public function ticket()
+    public function ticket(): BelongsTo
     {
         return $this->belongsTo(SupportTicket::class, 'ticket_id');
     }
 
-    public function reply()
+    public function reply(): BelongsTo
     {
         return $this->belongsTo(TicketReply::class, 'reply_id');
     }
 }
-
-

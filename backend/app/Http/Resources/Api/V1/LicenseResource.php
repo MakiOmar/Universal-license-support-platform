@@ -7,29 +7,24 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class LicenseResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
             'license_key' => $this->license_key,
-            'product' => new ProductResource($this->whenLoaded('product')),
-            'customer' => new CustomerResource($this->whenLoaded('customer')),
-            'license_type' => $this->license_type,
-            'max_activations' => $this->max_activations,
-            'current_activations' => $this->whenLoaded('activations', fn () => $this->activations->where('status', 'active')->count()),
             'status' => $this->status,
-            'purchased_at' => $this->purchased_at?->toIso8601String(),
-            'expires_at' => $this->expires_at?->toIso8601String(),
-            'support_expires_at' => $this->support_expires_at?->toIso8601String(),
+            'max_activations' => $this->max_activations,
+            'activations_used' => $this->when(
+                $this->relationLoaded('activations'),
+                fn () => $this->activations->where('status', 'active')->count(),
+                fn () => $this->activeActivationsCount(),
+            ),
+            'purchased_at' => $this->purchased_at,
+            'expires_at' => $this->expires_at,
+            'support_expires_at' => $this->support_expires_at,
+            'product' => new ProductResource($this->whenLoaded('product')),
+            'pricing_tier' => new PricingTierResource($this->whenLoaded('pricingTier')),
             'activations' => LicenseActivationResource::collection($this->whenLoaded('activations')),
-            'created_at' => $this->created_at?->toIso8601String(),
-            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }
-

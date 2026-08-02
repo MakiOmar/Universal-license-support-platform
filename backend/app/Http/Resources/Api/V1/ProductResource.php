@@ -7,11 +7,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class ProductResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
@@ -22,9 +17,7 @@ class ProductResource extends JsonResource
             'type' => $this->type,
             'version' => $this->version,
             'status' => $this->status,
-            'created_at' => $this->created_at?->toIso8601String(),
-            'updated_at' => $this->updated_at?->toIso8601String(),
+            'pricing_tiers' => PricingTierResource::collection($this->whenLoaded('pricingTiers')),
         ];
     }
 }
-

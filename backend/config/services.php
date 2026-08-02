@@ -37,17 +37,10 @@ return [
 
     'stripe' => [
         'key' => env('STRIPE_KEY'),
-        'secret_key' => env('STRIPE_SECRET'),
+        'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-    ],
-
-    'paypal' => [
-        'client_id' => env('PAYPAL_CLIENT_ID'),
-        'client_secret' => env('PAYPAL_CLIENT_SECRET'),
-        'mode' => env('PAYPAL_MODE', 'sandbox'), // 'sandbox' or 'production'
-        'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
-        'return_url' => env('PAYPAL_RETURN_URL', env('APP_URL') . '/payment/paypal/return'),
-        'cancel_url' => env('PAYPAL_CANCEL_URL', env('APP_URL') . '/payment/paypal/cancel'),
+        'checkout_success_url' => env('STRIPE_CHECKOUT_SUCCESS_URL', env('FRONTEND_URL', 'http://localhost:5173').'/checkout/success'),
+        'checkout_cancel_url' => env('STRIPE_CHECKOUT_CANCEL_URL', env('FRONTEND_URL', 'http://localhost:5173').'/checkout/cancel'),
     ],
 
 ];
