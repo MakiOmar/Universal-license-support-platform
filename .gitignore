@@ -30,5 +30,6 @@
 /backend/public/storage
 /backend/public/hot
 
-composer.lock
-package-lock.json
+# Lockfiles: keep backend lock committed for reproducible deploys
+/package-lock.json
+/site-front/package-lock.json
