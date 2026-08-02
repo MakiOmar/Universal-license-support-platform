@@ -1,10 +1,31 @@
 import { useAuthStore } from '~/stores/auth'
 
-export const API_BASE_URL = 'http://127.0.0.1:8000/api/v1'
-export const CUSTOMER_API_BASE_URL = `${API_BASE_URL}/customer`
+/**
+ * Normalize API base so callers always hit /api/v1, even if env is set to /api.
+ */
+function normalizeApiBase(base: string): string {
+  const trimmed = base.replace(/\/+$/, '')
+
+  if (trimmed.endsWith('/api/v1')) {
+    return trimmed
+  }
+
+  if (trimmed.endsWith('/api')) {
+    return `${trimmed}/v1`
+  }
+
+  return trimmed
+}
 
 export const useApi = () => {
   const authStore = useAuthStore()
+  const config = useRuntimeConfig()
+
+  // Prefer runtime config (from .env / nuxt.config), keep a safe default
+  const API_BASE_URL = normalizeApiBase(
+    String(config.public.apiBase || 'http://localhost:8000/api/v1')
+  )
+  const CUSTOMER_API_BASE_URL = `${API_BASE_URL}/customer`
 
   async function request<T = any>(
     url: string,
@@ -22,7 +43,10 @@ export const useApi = () => {
       headers['Authorization'] = `Bearer ${token}`
     }
 
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+    // Allow absolute URLs; otherwise prefix with API base
+    const endpoint = url.startsWith('http') ? url : `${API_BASE_URL}${url.startsWith('/') ? url : `/${url}`}`
+
+    const response = await fetch(endpoint, {
       ...options,
       headers,
     })
@@ -93,3 +117,6 @@ export const useApi = () => {
   }
 }
 
+// Backwards-compatible named exports for pages that import constants
+export const API_BASE_URL = 'http://localhost:8000/api/v1'
+export const CUSTOMER_API_BASE_URL = `${API_BASE_URL}/customer`

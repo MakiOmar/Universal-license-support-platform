@@ -192,7 +192,7 @@ Environment variables are configured in `.env` file (create from `env.example`).
 ```bash
 # Nuxt Configuration
 NUXT_PUBLIC_SITE_URL=http://localhost:3000
-NUXT_PUBLIC_API_BASE=http://localhost:8000/api
+NUXT_PUBLIC_API_BASE=http://localhost:8000/api/v1
 
 # API Configuration
 API_SECRET=your-api-secret-key
@@ -214,7 +214,7 @@ NODE_ENV=development
 runtimeConfig: {
   apiSecret: process.env.API_SECRET,  // Server-side only
   public: {
-    apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api',
+    apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
     siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   }
 }
@@ -423,7 +423,7 @@ runtimeConfig: {
   
   // Public keys (exposed to client-side)
   public: {
-    apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api',
+    apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
     siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   }
 }

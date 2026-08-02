@@ -21,6 +21,13 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
 
+  // Public API base must include /api/v1 (Laravel route prefix)
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
+    },
+  },
+
   css: [resolve(__dirname, 'assets/css/main.css')],
 
   postcss: {

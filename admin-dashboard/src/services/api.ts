@@ -1,6 +1,10 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
+// Must include /api/v1 — Laravel routes are registered under that prefix
+const rawBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
+const API_BASE_URL = rawBase.replace(/\/+$/, '').endsWith('/api')
+  ? `${rawBase.replace(/\/+$/, '')}/v1`
+  : rawBase.replace(/\/+$/, '')
 
 // Admin API base URL (for admin routes)
 export const ADMIN_API_BASE_URL = `${API_BASE_URL}/admin`

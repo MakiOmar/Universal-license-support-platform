@@ -27,6 +27,9 @@
 
 /admin-dashboard/dist
 /admin-dashboard/.vite
+/admin-dashboard/.env
+/admin-dashboard/.env.*
+!/admin-dashboard/.env.example
 
 composer.lock
 package-lock.json
