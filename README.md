@@ -66,7 +66,7 @@ cd site-front
 npm install
 ```
 
-API target is chosen by Vite mode (no need to edit `.env` for the common cases):
+API target is chosen by script (Qwik always uses Vite `--mode ssr` for the dev server):
 
 | Script | API base |
 |---|---|
@@ -75,13 +75,13 @@ API target is chosen by Vite mode (no need to edit `.env` for the common cases):
 | `npm run preview` / `npm run preview:local` | local API |
 | `npm run preview:production` | production API |
 
-Env files: [site-front/.env.development](site-front/.env.development), [site-front/.env.production-api](site-front/.env.production-api) (dev against live API), [site-front/.env.production](site-front/.env.production) (production builds). Override locally with `.env.*.local` (gitignored).
+Env files: [site-front/.env.development](site-front/.env.development), [site-front/.env.production-api](site-front/.env.production-api), [site-front/.env.production](site-front/.env.production). Override with `.env.*.local` (gitignored).
 
 Portal defaults to Vite SSR on port **5173**.
 
 ```bash
 npm run dev                 # local backend
-npm run dev:production      # hit production API while developing UI (mode: production-api)
+npm run dev:production      # hit production API while developing UI
 npm run preview:local
 npm run preview:production
 ```
