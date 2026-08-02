@@ -97,6 +97,18 @@ export function formatDate(value?: string | null): string {
   });
 }
 
+export function formatDateTime(value?: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 export function statusBadgeClass(status: string): string {
   const normalized = status.toLowerCase();
   if (["active", "resolved", "open"].includes(normalized)) return "badge badge-green";

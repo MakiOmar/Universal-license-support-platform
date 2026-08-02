@@ -8,6 +8,7 @@ import {
   ErrorState,
   LoadingState,
   formatDate,
+  formatDateTime,
   statusBadgeClass,
 } from "~/components/site-chrome/site-chrome";
 import type { License, LicenseActivation } from "~/lib/types";
@@ -135,7 +136,7 @@ export default component$(() => {
                         <p style={{ margin: 0 }}>
                           <span class={statusBadgeClass(activation.status)}>{activation.status}</span>
                           {" · Last check: "}
-                          {formatDate(activation.last_check_at)}
+                          {formatDateTime(activation.last_check_at)}
                         </p>
                       </div>
                       {activation.status === "active" ? (
