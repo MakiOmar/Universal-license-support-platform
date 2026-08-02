@@ -64,11 +64,27 @@ Optional: `php artisan queue:work` for queued mail/notifications.
 ```bash
 cd site-front
 npm install
-# PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1  (.env)
-npm run dev
 ```
 
+API target is chosen by Vite mode (no need to edit `.env` for the common cases):
+
+| Script | API base |
+|---|---|
+| `npm run dev` / `npm run dev:local` | `http://127.0.0.1:8000/api/v1` |
+| `npm run dev:production` | `https://ulsp.gamesspoteg.com/api/v1` |
+| `npm run preview` / `npm run preview:local` | local API |
+| `npm run preview:production` | production API |
+
+Env files: [site-front/.env.development](site-front/.env.development), [site-front/.env.production](site-front/.env.production). Override locally with `.env.development.local` / `.env.production.local` (gitignored).
+
 Portal defaults to Vite SSR on port **5173**.
+
+```bash
+npm run dev                 # local backend
+npm run dev:production      # hit production API while developing UI
+npm run preview:local
+npm run preview:production
+```
 
 ## API overview
 

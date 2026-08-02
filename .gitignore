@@ -14,6 +14,9 @@
 /site-front/.env
 /site-front/.env.*
 !/site-front/.env.example
+!/site-front/.env.development
+!/site-front/.env.production
+/site-front/.env.*.local
 
 /backend/storage/*.key
 /backend/storage/app/*
