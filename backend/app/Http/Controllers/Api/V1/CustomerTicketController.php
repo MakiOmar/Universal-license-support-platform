@@ -44,8 +44,12 @@ class CustomerTicketController extends Controller
 
         $data = $request->validated();
 
-        if (isset($data['license_id'])) {
-            $ownsLicense = $request->user()->licenses()->where('id', $data['license_id'])->exists();
+        // Extra ownership checks (Form Request already scopes exists rules to this customer).
+        if (! empty($data['license_id'])) {
+            $ownsLicense = $request->user()->licenses()
+                ->where('id', $data['license_id'])
+                ->where('product_id', $data['product_id'])
+                ->exists();
             abort_unless($ownsLicense, 403);
         }
 

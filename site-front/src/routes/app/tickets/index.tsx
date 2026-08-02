@@ -1,6 +1,7 @@
 import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
 import { Link } from "@builder.io/qwik-city";
 import type { DocumentHead } from "@builder.io/qwik-city";
+import Swal from "sweetalert2";
 import { apiGet, apiPost, unwrapList } from "~/lib/api";
 import {
   EmptyState,
@@ -9,10 +10,32 @@ import {
   formatDate,
   statusBadgeClass,
 } from "~/components/site-chrome/site-chrome";
-import type { Ticket } from "~/lib/types";
+import type { License, Product, Ticket } from "~/lib/types";
+
+function uniqueLicensedProducts(items: License[]): Product[] {
+  const map = new Map<number, Product>();
+  for (const license of items) {
+    if (license.product?.id) {
+      map.set(license.product.id, license.product);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function licensesForSelectedProduct(items: License[], selectedProductId: string): License[] {
+  const selected = Number(selectedProductId);
+  if (!selected) return [];
+  return items.filter((license) => {
+    const productId = license.product?.id ?? (license as License & { product_id?: number }).product_id;
+    return productId === selected;
+  });
+}
 
 export default component$(() => {
   const tickets = useSignal<Ticket[]>([]);
+  const licenses = useSignal<License[]>([]);
+  const licensedProducts = useSignal<Product[]>([]);
+  const productLicenses = useSignal<License[]>([]);
   const loading = useSignal(true);
   const error = useSignal("");
   const showCreate = useSignal(false);
@@ -23,7 +46,14 @@ export default component$(() => {
   const description = useSignal("");
   const priority = useSignal("medium");
   const category = useSignal("");
+  const productId = useSignal("");
+  const licenseId = useSignal("");
   const statusFilter = useSignal("");
+
+  const syncProductOptions = $(() => {
+    licensedProducts.value = uniqueLicensedProducts(licenses.value);
+    productLicenses.value = licensesForSelectedProduct(licenses.value, productId.value);
+  });
 
   const loadTickets = $(async () => {
     loading.value = true;
@@ -39,28 +69,77 @@ export default component$(() => {
     }
   });
 
+  const loadLicenses = $(async () => {
+    try {
+      const response = await apiGet<License[] | { data: License[] }>("/customer/licenses");
+      licenses.value = unwrapList(response);
+      await syncProductOptions();
+    } catch {
+      licenses.value = [];
+      licensedProducts.value = [];
+      productLicenses.value = [];
+    }
+  });
+
   useVisibleTask$(async () => {
-    await loadTickets();
+    await Promise.all([loadTickets(), loadLicenses()]);
+  });
+
+  const openCreate = $(async () => {
+    createError.value = "";
+    if (licenses.value.length === 0) {
+      await loadLicenses();
+    } else {
+      await syncProductOptions();
+    }
+
+    if (licensedProducts.value.length === 0) {
+      await Swal.fire({
+        icon: "info",
+        title: "No licensed products",
+        text: "Purchase a license before opening a support ticket.",
+      });
+      return;
+    }
+
+    showCreate.value = true;
   });
 
   const handleCreate = $(async () => {
+    if (!productId.value) {
+      createError.value = "Please select a licensed product.";
+      return;
+    }
+
     creating.value = true;
     createError.value = "";
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | number> = {
         subject: subject.value,
         description: description.value,
         priority: priority.value,
+        product_id: Number(productId.value),
       };
       if (category.value) payload.category = category.value;
+      if (licenseId.value) payload.license_id = Number(licenseId.value);
 
       await apiPost("/customer/tickets", payload);
-      alert("Ticket created successfully.");
+      await Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Ticket created",
+        showConfirmButton: false,
+        timer: 2000,
+      });
       showCreate.value = false;
       subject.value = "";
       description.value = "";
       priority.value = "medium";
       category.value = "";
+      productId.value = "";
+      licenseId.value = "";
+      productLicenses.value = [];
       await loadTickets();
     } catch (err) {
       createError.value = err instanceof Error ? err.message : "Failed to create ticket.";
@@ -76,7 +155,7 @@ export default component$(() => {
           <h1>Support tickets</h1>
           <p>Manage your support requests.</p>
         </div>
-        <button type="button" class="btn btn-primary" onClick$={() => (showCreate.value = true)}>
+        <button type="button" class="btn btn-primary" onClick$={openCreate}>
           New ticket
         </button>
       </div>
@@ -113,6 +192,7 @@ export default component$(() => {
               <tr>
                 <th>Ticket #</th>
                 <th>Subject</th>
+                <th>Product</th>
                 <th>Priority</th>
                 <th>Status</th>
                 <th>Created</th>
@@ -124,6 +204,7 @@ export default component$(() => {
                 <tr key={ticket.id}>
                   <td>{ticket.ticket_number}</td>
                   <td>{ticket.subject}</td>
+                  <td>{ticket.product?.name || "—"}</td>
                   <td>
                     <span class={statusBadgeClass(ticket.priority)}>{ticket.priority}</span>
                   </td>
@@ -147,6 +228,55 @@ export default component$(() => {
             <div class="card-body">
               <h2 style={{ marginTop: 0 }}>Create ticket</h2>
               <form preventdefault:submit onSubmit$={handleCreate}>
+                <div class="form-group">
+                  <label for="product_id">Product</label>
+                  <select
+                    id="product_id"
+                    class="form-control"
+                    required
+                    value={productId.value}
+                    onChange$={(event) => {
+                      productId.value = (event.target as HTMLSelectElement).value;
+                      licenseId.value = "";
+                      productLicenses.value = licensesForSelectedProduct(licenses.value, productId.value);
+                      if (productLicenses.value.length === 1) {
+                        licenseId.value = String(productLicenses.value[0].id);
+                      }
+                    }}
+                  >
+                    <option value="">Select a licensed product</option>
+                    {licensedProducts.value.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p style={{ margin: "0.35rem 0 0", color: "var(--color-muted)", fontSize: "0.875rem" }}>
+                    Only products you already have a license for are listed.
+                  </p>
+                </div>
+
+                {productId.value ? (
+                  <div class="form-group">
+                    <label for="license_id">License (optional)</label>
+                    <select
+                      id="license_id"
+                      class="form-control"
+                      value={licenseId.value}
+                      onChange$={(event) => {
+                        licenseId.value = (event.target as HTMLSelectElement).value;
+                      }}
+                    >
+                      <option value="">Any / not specific</option>
+                      {productLicenses.value.map((license) => (
+                        <option key={license.id} value={license.id}>
+                          {license.license_key}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
                 <div class="form-group">
                   <label for="subject">Subject</label>
                   <input
