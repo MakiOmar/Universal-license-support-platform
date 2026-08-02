@@ -69,7 +69,9 @@ class License extends Model
 
     public function activations(): HasMany
     {
-        return $this->hasMany(LicenseActivation::class);
+        return $this->hasMany(LicenseActivation::class)
+            ->orderByDesc('activated_at')
+            ->orderByDesc('id');
     }
 
     public function payments(): HasMany

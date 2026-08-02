@@ -24,7 +24,11 @@ class CustomerLicenseController extends Controller
 
         $licenses = $request->user()
             ->licenses()
-            ->with(['product', 'pricingTier', 'activations'])
+            ->with([
+                'product',
+                'pricingTier',
+                'activations' => fn ($query) => $query->orderByDesc('activated_at')->orderByDesc('id'),
+            ])
             ->latest()
             ->get();
 
@@ -35,7 +39,11 @@ class CustomerLicenseController extends Controller
     {
         $this->authorize('view', $license);
 
-        $license->load(['product', 'pricingTier', 'activations']);
+        $license->load([
+            'product',
+            'pricingTier',
+            'activations' => fn ($query) => $query->orderByDesc('activated_at')->orderByDesc('id'),
+        ]);
 
         return new LicenseResource($license);
     }
@@ -44,7 +52,10 @@ class CustomerLicenseController extends Controller
     {
         $this->authorize('manageActivations', $license);
 
-        $activations = $license->activations()->latest('activated_at')->get();
+        $activations = $license->activations()
+            ->orderByDesc('activated_at')
+            ->orderByDesc('id')
+            ->get();
 
         return LicenseActivationResource::collection($activations);
     }

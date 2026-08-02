@@ -121,59 +121,74 @@ export default component$(() => {
                 <EmptyState message="No devices activated yet." />
               ) : (
                 <div style={{ display: "grid", gap: "0.75rem" }}>
-                  {(license.value.activations || []).map((activation: LicenseActivation) => (
-                    <div
-                      key={activation.id}
-                      class="card"
-                      style={{ padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}
-                    >
-                      <div>
-                        <strong>{activation.device_name || activation.activation_value}</strong>
-                        <p style={{ margin: "0.25rem 0", color: "var(--color-muted)" }}>
-                          {activation.platform || activation.activation_type}
-                          {activation.app_version ? ` · v${activation.app_version}` : ""}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <span class={statusBadgeClass(activation.status)}>{activation.status}</span>
-                          {" · Last check: "}
-                          {formatDateTime(activation.last_check_at)}
-                        </p>
-                      </div>
-                      {activation.status === "active" ? (
-                        <button
-                          type="button"
-                          class="btn btn-secondary"
-                          disabled={removingId.value === activation.id}
-                          onClick$={async () => {
-                            const result = await Swal.fire({
-                              title: "Remove this device?",
-                              text: "You can activate again on a new device after removing this one.",
-                              icon: "warning",
-                              showCancelButton: true,
-                              confirmButtonText: "Remove device",
-                            });
-                            if (!result.isConfirmed || !license.value) return;
-                            removingId.value = activation.id;
-                            try {
-                              await apiDelete(`/customer/licenses/${license.value.id}/activations/${activation.id}`);
-                              await Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Device removed", showConfirmButton: false, timer: 2000 });
-                              await loadLicense();
-                            } catch (err) {
-                              await Swal.fire({
-                                icon: "error",
-                                title: "Could not remove device",
-                                text: err instanceof Error ? err.message : "Request failed",
+                  {(license.value.activations || []).map((activation: LicenseActivation) => {
+                    const modelName = activation.device_name?.trim() || "";
+                    const metaBits = [
+                      activation.platform,
+                      activation.app_version ? `v${activation.app_version}` : "",
+                    ].filter(Boolean);
+
+                    return (
+                      <div
+                        key={activation.id}
+                        class="card"
+                        style={{ padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}
+                      >
+                        <div>
+                          {/* Prefer phone model from device meta when the app sent it. */}
+                          <strong>{modelName || activation.activation_value}</strong>
+                          {modelName ? (
+                            <p style={{ margin: "0.25rem 0", color: "var(--color-muted)", fontFamily: "monospace", fontSize: "0.85rem", wordBreak: "break-all" }}>
+                              {activation.activation_value}
+                            </p>
+                          ) : null}
+                          <p style={{ margin: "0.25rem 0", color: "var(--color-muted)" }}>
+                            {metaBits.length > 0
+                              ? metaBits.join(" · ")
+                              : activation.activation_type}
+                          </p>
+                          <p style={{ margin: 0 }}>
+                            <span class={statusBadgeClass(activation.status)}>{activation.status}</span>
+                            {" · Last check: "}
+                            {formatDateTime(activation.last_check_at)}
+                          </p>
+                        </div>
+                        {activation.status === "active" ? (
+                          <button
+                            type="button"
+                            class="btn btn-secondary"
+                            disabled={removingId.value === activation.id}
+                            onClick$={async () => {
+                              const result = await Swal.fire({
+                                title: "Remove this device?",
+                                text: "You can activate again on a new device after removing this one.",
+                                icon: "warning",
+                                showCancelButton: true,
+                                confirmButtonText: "Remove device",
                               });
-                            } finally {
-                              removingId.value = null;
-                            }
-                          }}
-                        >
-                          {removingId.value === activation.id ? "Removing…" : "Remove"}
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
+                              if (!result.isConfirmed || !license.value) return;
+                              removingId.value = activation.id;
+                              try {
+                                await apiDelete(`/customer/licenses/${license.value.id}/activations/${activation.id}`);
+                                await Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Device removed", showConfirmButton: false, timer: 2000 });
+                                await loadLicense();
+                              } catch (err) {
+                                await Swal.fire({
+                                  icon: "error",
+                                  title: "Could not remove device",
+                                  text: err instanceof Error ? err.message : "Request failed",
+                                });
+                              } finally {
+                                removingId.value = null;
+                              }
+                            }}
+                          >
+                            {removingId.value === activation.id ? "Removing…" : "Remove"}
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
