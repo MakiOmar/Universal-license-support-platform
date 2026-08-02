@@ -121,7 +121,13 @@ export default component$(() => {
                 <EmptyState message="No devices activated yet." />
               ) : (
                 <div style={{ display: "grid", gap: "0.75rem" }}>
-                  {(license.value.activations || []).map((activation: LicenseActivation) => {
+                  {[...(license.value.activations || [])]
+                    .sort((a, b) => {
+                      const aTime = a.activated_at ? new Date(a.activated_at).getTime() : 0;
+                      const bTime = b.activated_at ? new Date(b.activated_at).getTime() : 0;
+                      return bTime - aTime || b.id - a.id;
+                    })
+                    .map((activation: LicenseActivation) => {
                     const modelName = activation.device_name?.trim() || "";
                     const metaBits = [
                       activation.platform,
