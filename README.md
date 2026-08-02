@@ -24,6 +24,7 @@ ulsp/
 ├── archive/           # Previous apps (do not run as primary)
 ├── docs/
 │   ├── openapi/openapi.yaml
+│   ├── MOBILE_APP_LICENSE_INTEGRATION.md
 │   └── reference-notes.md
 └── UNIVERSAL_LICENSE_SUPPORT_PLATFORM_WIREFRAME.md
 ```
@@ -45,6 +46,7 @@ php artisan serve
 - API: `http://127.0.0.1:8000/api/v1`
 - Admin: `http://127.0.0.1:8000/admin`
 - OpenAPI: [`docs/openapi/openapi.yaml`](docs/openapi/openapi.yaml)
+- Mobile license guide: [`docs/MOBILE_APP_LICENSE_INTEGRATION.md`](docs/MOBILE_APP_LICENSE_INTEGRATION.md)
 
 **Seeded accounts**
 
@@ -102,4 +104,5 @@ php artisan test
 
 - Wireframe: [`UNIVERSAL_LICENSE_SUPPORT_PLATFORM_WIREFRAME.md`](UNIVERSAL_LICENSE_SUPPORT_PLATFORM_WIREFRAME.md)
 - OpenAPI: [`docs/openapi/openapi.yaml`](docs/openapi/openapi.yaml)
+- Mobile license activate/validate: [`docs/MOBILE_APP_LICENSE_INTEGRATION.md`](docs/MOBILE_APP_LICENSE_INTEGRATION.md)
 - Legacy notes: [`docs/reference-notes.md`](docs/reference-notes.md)
