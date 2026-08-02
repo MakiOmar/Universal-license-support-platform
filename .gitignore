@@ -16,6 +16,7 @@
 !/site-front/.env.example
 !/site-front/.env.development
 !/site-front/.env.production
+!/site-front/.env.production-api
 /site-front/.env.*.local
 
 /backend/storage/*.key

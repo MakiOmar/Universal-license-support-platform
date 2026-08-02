@@ -15,7 +15,7 @@
     "deploy": "echo 'Run \"npm run qwik add\" to install a server adapter'",
     "dev": "vite --mode development",
     "dev:local": "vite --mode development",
-    "dev:production": "vite --mode production",
+    "dev:production": "vite --mode production-api",
     "dev.debug": "node --inspect-brk ./node_modules/vite/bin/vite.js --mode development --force",
     "fmt": "prettier --write .",
     "fmt.check": "prettier --check .",
@@ -24,7 +24,7 @@
     "preview:local": "vite build --mode development && vite build --ssr src/entry.preview.tsx --mode development && vite preview --mode development --open",
     "preview:production": "vite build --mode production && vite build --ssr src/entry.preview.tsx --mode production && vite preview --mode production --open",
     "start": "vite --open --mode development",
-    "start:production": "vite --open --mode production",
+    "start:production": "vite --open --mode production-api",
     "qwik": "qwik"
   },
   "devDependencies": {
