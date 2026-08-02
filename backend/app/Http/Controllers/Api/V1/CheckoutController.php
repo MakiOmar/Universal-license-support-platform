@@ -16,6 +16,12 @@ class CheckoutController extends Controller
 
     public function create(CreateCheckoutSessionRequest $request): JsonResponse
     {
+        if (! filled(config('services.stripe.secret'))) {
+            return response()->json([
+                'message' => 'Stripe is not configured. Set STRIPE_SECRET in the backend environment.',
+            ], 503);
+        }
+
         $tier = PricingTier::with('product')
             ->where('is_active', true)
             ->findOrFail($request->validated('pricing_tier_id'));

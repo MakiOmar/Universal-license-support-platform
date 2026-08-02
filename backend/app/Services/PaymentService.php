@@ -18,12 +18,16 @@ class PaymentService
 {
     public function __construct(
         protected LicenseService $licenseService,
-    ) {
-        Stripe::setApiKey(config('services.stripe.secret'));
-    }
+    ) {}
 
     public function createCheckoutSession(Customer $customer, PricingTier $tier, array $options = []): Session
     {
+        $secret = config('services.stripe.secret');
+        if (! filled($secret)) {
+            throw new UnexpectedValueException('Stripe secret is not configured.');
+        }
+
+        Stripe::setApiKey($secret);
         $tier->loadMissing('product');
 
         $successUrl = $options['success_url'] ?? config('services.stripe.checkout_success_url');

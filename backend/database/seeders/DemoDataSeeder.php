@@ -2,11 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\ApiKey;
 use App\Models\Customer;
+use App\Models\License;
 use App\Models\PricingTier;
 use App\Models\Product;
-use App\Models\User;
+use App\Services\LicenseService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class DemoDataSeeder extends Seeder
@@ -25,7 +28,7 @@ class DemoDataSeeder extends Seeder
             ],
         );
 
-        PricingTier::firstOrCreate(
+        $tier = PricingTier::firstOrCreate(
             ['product_id' => $product->id, 'name' => 'Standard Yearly'],
             [
                 'price' => 99.00,
@@ -36,7 +39,7 @@ class DemoDataSeeder extends Seeder
             ],
         );
 
-        Customer::firstOrCreate(
+        $customer = Customer::firstOrCreate(
             ['email' => 'customer@ulsp.local'],
             [
                 'password' => 'password',
@@ -45,5 +48,26 @@ class DemoDataSeeder extends Seeder
                 'status' => 'active',
             ],
         );
+
+        ApiKey::firstOrCreate(
+            ['key' => 'ulsp_demo_api_key_123456'],
+            [
+                'customer_id' => $customer->id,
+                'product_id' => $product->id,
+                'name' => 'Demo Integration Key',
+                'secret_hash' => Hash::make('demo-secret'),
+                'rate_limit' => 1000,
+                'status' => ApiKey::STATUS_ACTIVE,
+            ],
+        );
+
+        if (! License::where('customer_id', $customer->id)->exists()) {
+            app(LicenseService::class)->issue($customer, $product, $tier, [
+                'status' => License::STATUS_ACTIVE,
+                'purchased_at' => now(),
+                'expires_at' => now()->addYear(),
+                'support_expires_at' => now()->addYear(),
+            ]);
+        }
     }
 }

@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Notifications\CustomerResetPasswordNotification;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,9 +12,9 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class Customer extends Authenticatable
+class Customer extends Authenticatable implements CanResetPasswordContract
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use CanResetPassword, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'email',
@@ -62,5 +65,10 @@ class Customer extends Authenticatable
         $name = trim(($this->first_name ?? '').' '.($this->last_name ?? ''));
 
         return $name !== '' ? $name : $this->email;
+    }
+
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new CustomerResetPasswordNotification($token));
     }
 }

@@ -55,7 +55,12 @@ class AuthController extends Controller
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        Password::broker('customers')->sendResetLink($request->only('email'));
+        // Always return a generic success payload; never leak whether the email exists.
+        try {
+            Password::broker('customers')->sendResetLink($request->only('email'));
+        } catch (\Throwable) {
+            // Ignore broker/mail failures so the API never returns a 500 for this flow.
+        }
 
         return response()->json([
             'message' => __('If that email exists, a reset link has been sent.'),

@@ -4,16 +4,42 @@ namespace App\Policies;
 
 use App\Models\Customer;
 use App\Models\License;
+use App\Models\User;
+use Illuminate\Contracts\Auth\Authenticatable;
 
 class LicensePolicy
 {
-    public function viewAny(Customer $customer): bool
+    public function viewAny(Authenticatable $actor): bool
     {
-        return true;
+        return $actor instanceof User || $actor instanceof Customer;
     }
 
-    public function view(Customer $customer, License $license): bool
+    public function view(Authenticatable $actor, License $license): bool
     {
-        return $license->customer_id === $customer->id;
+        if ($actor instanceof User) {
+            return true;
+        }
+
+        return $actor instanceof Customer && $license->customer_id === $actor->id;
+    }
+
+    public function create(Authenticatable $actor): bool
+    {
+        return $actor instanceof User;
+    }
+
+    public function update(Authenticatable $actor, License $license): bool
+    {
+        return $actor instanceof User;
+    }
+
+    public function delete(Authenticatable $actor, License $license): bool
+    {
+        return $actor instanceof User;
+    }
+
+    public function deleteAny(Authenticatable $actor): bool
+    {
+        return $actor instanceof User;
     }
 }
