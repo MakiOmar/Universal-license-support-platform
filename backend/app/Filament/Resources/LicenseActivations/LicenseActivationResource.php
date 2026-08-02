@@ -73,6 +73,15 @@ class LicenseActivationResource extends Resource
                 TextInput::make('activation_value')
                     ->required()
                     ->maxLength(255),
+                TextInput::make('device_name')
+                    ->label('Device / phone model')
+                    ->maxLength(120)
+                    ->helperText('e.g. Honor 6xb'),
+                TextInput::make('platform')
+                    ->maxLength(50)
+                    ->helperText('e.g. android, ios'),
+                TextInput::make('app_version')
+                    ->maxLength(50),
                 TextInput::make('activation_hash')
                     ->required()
                     ->maxLength(64),
@@ -95,14 +104,27 @@ class LicenseActivationResource extends Resource
             ->columns([
                 TextColumn::make('license.license_key')
                     ->searchable(),
+                TextColumn::make('device_name')
+                    ->label('Device')
+                    ->searchable()
+                    ->placeholder('—'),
+                TextColumn::make('platform')
+                    ->toggleable(),
+                TextColumn::make('app_version')
+                    ->label('App')
+                    ->toggleable(),
                 TextColumn::make('activation_type')
                     ->badge(),
                 TextColumn::make('activation_value')
                     ->limit(30),
                 TextColumn::make('status')
                     ->badge(),
-                TextColumn::make('ip_address'),
+                TextColumn::make('ip_address')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('activated_at')
+                    ->dateTime()
+                    ->sortable(),
+                TextColumn::make('last_check_at')
                     ->dateTime()
                     ->sortable(),
             ])

@@ -64,6 +64,7 @@ class LicenseService
         ?string $activationType = null,
         ?string $activationValue = null,
         ?int $productId = null,
+        array $deviceMeta = [],
     ): array {
         $license = License::with(['product', 'activations'])
             ->where('license_key', $licenseKey)
@@ -93,15 +94,28 @@ class LicenseService
         $activationValid = true;
         if ($activationType && $activationValue) {
             $hash = LicenseActivation::hashActivation($activationType, $activationValue);
-            $activationValid = $license->activations()
+            $activation = $license->activations()
                 ->where('activation_hash', $hash)
                 ->where('status', LicenseActivation::STATUS_ACTIVE)
-                ->exists();
+                ->first();
+
+            $activationValid = $activation !== null;
+
+            // Refresh last check and device meta when the app sends them on validate.
+            if ($activation) {
+                $updates = ['last_check_at' => now()];
+                foreach (['device_name', 'platform', 'app_version'] as $field) {
+                    if (! empty($deviceMeta[$field])) {
+                        $updates[$field] = $deviceMeta[$field];
+                    }
+                }
+                $activation->update($updates);
+            }
         }
 
         return [
             'valid' => true,
-            'license' => $license,
+            'license' => $license->fresh(['product', 'activations']),
             'activation_valid' => $activationValid,
             'activations_used' => $license->activeActivationsCount(),
             'max_activations' => $license->max_activations,

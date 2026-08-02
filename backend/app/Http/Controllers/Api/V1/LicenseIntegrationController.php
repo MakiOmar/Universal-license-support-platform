@@ -29,6 +29,11 @@ class LicenseIntegrationController extends Controller
             $request->validated('activation_type'),
             $request->validated('activation_value'),
             $apiKey?->product_id,
+            [
+                'device_name' => $request->validated('device_name'),
+                'platform' => $request->validated('platform'),
+                'app_version' => $request->validated('app_version'),
+            ],
         );
 
         $response = [

@@ -17,6 +17,9 @@ class ValidateLicenseRequest extends FormRequest
             'license_key' => ['required', 'string'],
             'activation_type' => ['nullable', 'string', 'max:50'],
             'activation_value' => ['nullable', 'string', 'max:255'],
+            'device_name' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'platform' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'app_version' => ['sometimes', 'nullable', 'string', 'max:50'],
         ];
     }
 }
