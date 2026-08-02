@@ -123,9 +123,17 @@ export default component$(() => {
                 <div style={{ display: "grid", gap: "0.75rem" }}>
                   {[...(license.value.activations || [])]
                     .sort((a, b) => {
-                      const aTime = a.activated_at ? new Date(a.activated_at).getTime() : 0;
-                      const bTime = b.activated_at ? new Date(b.activated_at).getTime() : 0;
-                      return bTime - aTime || b.id - a.id;
+                      const aActive = a.status === "active" ? 0 : 1;
+                      const bActive = b.status === "active" ? 0 : 1;
+                      if (aActive !== bActive) return aActive - bActive;
+
+                      const aActivated = a.activated_at ? new Date(a.activated_at).getTime() : 0;
+                      const bActivated = b.activated_at ? new Date(b.activated_at).getTime() : 0;
+                      if (bActivated !== aActivated) return bActivated - aActivated;
+
+                      const aCheck = a.last_check_at ? new Date(a.last_check_at).getTime() : 0;
+                      const bCheck = b.last_check_at ? new Date(b.last_check_at).getTime() : 0;
+                      return bCheck - aCheck || b.id - a.id;
                     })
                     .map((activation: LicenseActivation) => {
                     const modelName = activation.device_name?.trim() || "";

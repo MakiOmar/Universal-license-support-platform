@@ -70,7 +70,9 @@ class License extends Model
     public function activations(): HasMany
     {
         return $this->hasMany(LicenseActivation::class)
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderByDesc('activated_at')
+            ->orderByDesc('last_check_at')
             ->orderByDesc('id');
     }
 

@@ -27,7 +27,11 @@ class CustomerLicenseController extends Controller
             ->with([
                 'product',
                 'pricingTier',
-                'activations' => fn ($query) => $query->orderByDesc('activated_at')->orderByDesc('id'),
+                'activations' => fn ($query) => $query
+                    ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+                    ->orderByDesc('activated_at')
+                    ->orderByDesc('last_check_at')
+                    ->orderByDesc('id'),
             ])
             ->latest()
             ->get();
@@ -42,7 +46,11 @@ class CustomerLicenseController extends Controller
         $license->load([
             'product',
             'pricingTier',
-            'activations' => fn ($query) => $query->orderByDesc('activated_at')->orderByDesc('id'),
+            'activations' => fn ($query) => $query
+                ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+                ->orderByDesc('activated_at')
+                ->orderByDesc('last_check_at')
+                ->orderByDesc('id'),
         ]);
 
         return new LicenseResource($license);
@@ -53,7 +61,9 @@ class CustomerLicenseController extends Controller
         $this->authorize('manageActivations', $license);
 
         $activations = $license->activations()
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderByDesc('activated_at')
+            ->orderByDesc('last_check_at')
             ->orderByDesc('id')
             ->get();
 
