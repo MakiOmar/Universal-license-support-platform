@@ -19,13 +19,20 @@ export const SiteNav = component$(() => {
             <>
               <Link href="/app">Dashboard</Link>
               <Link href="/app/licenses">Licenses</Link>
+              <Link href="/app/payments">Payments</Link>
               <Link href="/app/tickets">Tickets</Link>
               <Link href="/app/profile">Profile</Link>
               <span>{customerDisplayName(customer)}</span>
               <button
                 type="button"
                 class="btn btn-secondary"
-                onClick$={() => {
+                onClick$={async () => {
+                  try {
+                    const { apiPost } = await import("~/lib/api");
+                    await apiPost("/auth/logout");
+                  } catch {
+                    // Always clear local session even if API logout fails.
+                  }
                   clearAuth();
                   window.location.href = "/login";
                 }}
@@ -53,6 +60,7 @@ export const AppSubNav = component$(() => {
     <nav class="app-subnav">
       <Link href="/app">Dashboard</Link>
       <Link href="/app/licenses">Licenses</Link>
+      <Link href="/app/payments">Payments</Link>
       <Link href="/app/tickets">Tickets</Link>
       <Link href="/app/profile">Profile</Link>
     </nav>

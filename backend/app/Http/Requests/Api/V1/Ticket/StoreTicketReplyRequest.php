@@ -15,6 +15,8 @@ class StoreTicketReplyRequest extends FormRequest
     {
         return [
             'message' => ['required', 'string'],
+            'attachments' => ['sometimes', 'array', 'max:5'],
+            'attachments.*' => ['file', 'max:5120'],
         ];
     }
 }

@@ -17,6 +17,10 @@ class ActivateLicenseRequest extends FormRequest
             'license_key' => ['required', 'string'],
             'activation_type' => ['required', 'string', 'max:50'],
             'activation_value' => ['required', 'string', 'max:255'],
+            'replace_oldest' => ['sometimes', 'boolean'],
+            'device_name' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'platform' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'app_version' => ['sometimes', 'nullable', 'string', 'max:50'],
         ];
     }
 }

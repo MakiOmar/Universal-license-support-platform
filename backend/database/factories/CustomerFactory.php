@@ -20,6 +20,7 @@ class CustomerFactory extends Factory
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'status' => 'active',
+            'email_verified_at' => now(),
         ];
     }
 }

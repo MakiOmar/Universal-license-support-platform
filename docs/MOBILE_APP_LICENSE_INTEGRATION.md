@@ -89,9 +89,20 @@ Content-Type: application/json
 {
   "license_key": "DEMO-AO1V-FVCP-W6WR-VOLI",
   "activation_type": "device_id",
-  "activation_value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+  "activation_value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "replace_oldest": false,
+  "device_name": "Pixel 8",
+  "platform": "android",
+  "app_version": "1.2.0"
 }
 ```
+
+Optional fields:
+
+| Field | Purpose |
+|---|---|
+| `replace_oldest` | If `true` and the license is at max activations, deactivate the oldest device (`last_check_at`) then activate this one |
+| `device_name` / `platform` / `app_version` | Shown in the customer portal device list for support |
 
 ### Success (200 / 201)
 
@@ -104,6 +115,9 @@ Response is wrapped as a Laravel resource (`data`):
     "activation_type": "device_id",
     "activation_value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "activation_hash": "f1e2d3c4b5a697887766554433221100ffeeddccbbaa99887766554433221100",
+    "device_name": "Pixel 8",
+    "platform": "android",
+    "app_version": "1.2.0",
     "status": "active",
     "activated_at": "2026-08-02T12:00:00.000000Z",
     "last_check_at": "2026-08-02T12:00:00.000000Z"
@@ -115,13 +129,16 @@ Response is wrapped as a Laravel resource (`data`):
 
 Re-activating the same device is idempotent: an already-active binding is refreshed (`last_check_at` updated).
 
+Lost phone: either remove the device in the customer portal (`DELETE /customer/licenses/{id}/activations/{activation}`), or call activate with `replace_oldest: true`.
+
 ### Failure
 
 | Situation | Typical response |
 |---|---|
 | Missing / bad API key | `401` `{ "message": "API key required." }` or invalid key |
 | Invalid / expired / suspended license | `422` validation error on `license_key` |
-| Max activations reached | `422` (activation limit exceeded) |
+| Max activations reached (and `replace_oldest` is false/omitted) | `422` (activation limit exceeded) |
+| API key rate limit exceeded | `429` |
 
 ---
 

@@ -23,6 +23,8 @@ class StoreTicketRequest extends FormRequest
             ])],
             'license_id' => ['nullable', 'integer', 'exists:licenses,id'],
             'product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'attachments' => ['sometimes', 'array', 'max:5'],
+            'attachments.*' => ['file', 'max:5120'],
         ];
     }
 }

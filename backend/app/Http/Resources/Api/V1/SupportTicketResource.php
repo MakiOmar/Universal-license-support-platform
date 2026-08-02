@@ -22,6 +22,7 @@ class SupportTicketResource extends JsonResource
             'product' => new ProductResource($this->whenLoaded('product')),
             'license' => new LicenseResource($this->whenLoaded('license')),
             'replies' => TicketReplyResource::collection($this->whenLoaded('replies')),
+            'attachments' => TicketAttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }
 }

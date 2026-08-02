@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PricingTiers;
 
+use App\Filament\Concerns\ChecksAdminRole;
 use App\Filament\Resources\PricingTiers\Pages\ManagePricingTiers;
 use App\Models\PricingTier;
 use BackedEnum;
@@ -18,14 +19,47 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class PricingTierResource extends Resource
 {
+    use ChecksAdminRole;
+
     protected static ?string $model = PricingTier::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCurrencyDollar;
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    public static function canViewAny(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
 
     public static function form(Schema $schema): Schema
     {

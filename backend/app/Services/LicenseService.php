@@ -7,6 +7,8 @@ use App\Models\License;
 use App\Models\LicenseActivation;
 use App\Models\PricingTier;
 use App\Models\Product;
+use App\Notifications\LicenseIssuedNotification;
+use App\Notifications\LicenseSuspendedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -36,7 +38,7 @@ class LicenseService
                 ? $options['expires_at']
                 : $this->expiresAtForBillingCycle($billingCycle);
 
-            return License::create([
+            $license = License::create([
                 'license_key' => $licenseKey,
                 'product_id' => $product->id,
                 'customer_id' => $customer->id,
@@ -49,6 +51,11 @@ class LicenseService
                     ? $options['support_expires_at']
                     : $expiresAt,
             ]);
+
+            $license->load(['product', 'customer']);
+            $customer->notify(new LicenseIssuedNotification($license));
+
+            return $license;
         });
     }
 
@@ -102,6 +109,9 @@ class LicenseService
         ];
     }
 
+    /**
+     * @param  array{device_name?: string|null, platform?: string|null, app_version?: string|null}  $deviceMeta
+     */
     public function activate(
         string $licenseKey,
         string $activationType,
@@ -109,6 +119,8 @@ class LicenseService
         ?string $ipAddress = null,
         ?string $userAgent = null,
         ?int $productId = null,
+        bool $replaceOldest = false,
+        array $deviceMeta = [],
     ): LicenseActivation {
         $validation = $this->validate($licenseKey, null, null, $productId);
 
@@ -133,7 +145,12 @@ class LicenseService
 
         if ($existing) {
             if ($existing->status === LicenseActivation::STATUS_ACTIVE) {
-                $existing->update(['last_check_at' => now()]);
+                $existing->update(array_filter([
+                    'last_check_at' => now(),
+                    'device_name' => $deviceMeta['device_name'] ?? $existing->device_name,
+                    'platform' => $deviceMeta['platform'] ?? $existing->platform,
+                    'app_version' => $deviceMeta['app_version'] ?? $existing->app_version,
+                ], fn ($value) => $value !== null));
 
                 return $existing->fresh();
             }
@@ -144,15 +161,31 @@ class LicenseService
                 'last_check_at' => now(),
                 'ip_address' => $ipAddress,
                 'user_agent' => $userAgent,
+                'device_name' => $deviceMeta['device_name'] ?? $existing->device_name,
+                'platform' => $deviceMeta['platform'] ?? $existing->platform,
+                'app_version' => $deviceMeta['app_version'] ?? $existing->app_version,
             ]);
 
             return $existing->fresh();
         }
 
         if ($license->activeActivationsCount() >= $license->max_activations) {
-            throw ValidationException::withMessages([
-                'activation' => [__('Maximum activations reached for this license.')],
-            ]);
+            if (! $replaceOldest) {
+                throw ValidationException::withMessages([
+                    'activation' => [__('Maximum activations reached for this license.')],
+                ]);
+            }
+
+            $oldest = $license->activations()
+                ->where('status', LicenseActivation::STATUS_ACTIVE)
+                ->orderByRaw('last_check_at IS NULL')
+                ->orderBy('last_check_at')
+                ->orderBy('activated_at')
+                ->first();
+
+            if ($oldest) {
+                $oldest->update(['status' => LicenseActivation::STATUS_DEACTIVATED]);
+            }
         }
 
         return LicenseActivation::create([
@@ -162,6 +195,9 @@ class LicenseService
             'activation_hash' => $hash,
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
+            'device_name' => $deviceMeta['device_name'] ?? null,
+            'platform' => $deviceMeta['platform'] ?? null,
+            'app_version' => $deviceMeta['app_version'] ?? null,
             'status' => LicenseActivation::STATUS_ACTIVE,
             'activated_at' => now(),
             'last_check_at' => now(),
@@ -229,11 +265,16 @@ class LicenseService
         return $license->fresh();
     }
 
-    public function suspend(License $license): License
+    public function suspend(License $license, bool $notify = true): License
     {
         $license->update(['status' => License::STATUS_SUSPENDED]);
+        $license = $license->fresh(['customer', 'product']);
 
-        return $license->fresh();
+        if ($notify && $license?->customer) {
+            $license->customer->notify(new LicenseSuspendedNotification($license));
+        }
+
+        return $license;
     }
 
     protected function expiresAtForBillingCycle(string $cycle): ?\DateTimeInterface

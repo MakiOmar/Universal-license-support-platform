@@ -18,6 +18,7 @@ class TicketReplyResource extends JsonResource
             'message' => $this->message,
             'author_type' => class_basename($this->author_type),
             'created_at' => $this->created_at,
+            'attachments' => TicketAttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }
 }

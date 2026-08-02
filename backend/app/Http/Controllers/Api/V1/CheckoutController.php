@@ -22,6 +22,12 @@ class CheckoutController extends Controller
             ], 503);
         }
 
+        if (! $request->user()->email_verified_at) {
+            return response()->json([
+                'message' => 'Please verify your email before purchasing.',
+            ], 403);
+        }
+
         $tier = PricingTier::with('product')
             ->where('is_active', true)
             ->findOrFail($request->validated('pricing_tier_id'));

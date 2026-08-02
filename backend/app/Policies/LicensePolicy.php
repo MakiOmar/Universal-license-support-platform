@@ -42,4 +42,9 @@ class LicensePolicy
     {
         return $actor instanceof User;
     }
+
+    public function manageActivations(Authenticatable $actor, License $license): bool
+    {
+        return $this->view($actor, $license);
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\License;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class LicenseActivationTest extends TestCase
@@ -20,6 +21,8 @@ class LicenseActivationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Notification::fake();
 
         $product = Product::create([
             'name' => 'Test Product',

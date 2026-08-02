@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\LicenseActivations;
 
+use App\Filament\Concerns\ChecksAdminRole;
 use App\Filament\Resources\LicenseActivations\Pages\ManageLicenseActivations;
 use App\Models\LicenseActivation;
 use BackedEnum;
@@ -17,12 +18,45 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class LicenseActivationResource extends Resource
 {
+    use ChecksAdminRole;
+
     protected static ?string $model = LicenseActivation::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedComputerDesktop;
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessPanelRoles();
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
 
     public static function form(Schema $schema): Schema
     {

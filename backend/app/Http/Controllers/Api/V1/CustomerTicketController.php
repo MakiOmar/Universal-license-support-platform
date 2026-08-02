@@ -8,9 +8,12 @@ use App\Http\Requests\Api\V1\Ticket\StoreTicketRequest;
 use App\Http\Resources\Api\V1\SupportTicketResource;
 use App\Http\Resources\Api\V1\TicketReplyResource;
 use App\Models\SupportTicket;
+use App\Models\TicketAttachment;
 use App\Services\TicketService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CustomerTicketController extends Controller
 {
@@ -22,11 +25,15 @@ class CustomerTicketController extends Controller
     {
         $this->authorize('viewAny', SupportTicket::class);
 
-        $tickets = $request->user()
+        $query = $request->user()
             ->tickets()
-            ->with(['product', 'license'])
-            ->latest()
-            ->get();
+            ->with(['product', 'license']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        $tickets = $query->latest()->get();
 
         return SupportTicketResource::collection($tickets);
     }
@@ -42,7 +49,12 @@ class CustomerTicketController extends Controller
             abort_unless($ownsLicense, 403);
         }
 
-        $ticket = $this->ticketService->create($request->user(), $data);
+        $files = $request->file('attachments', []);
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+
+        $ticket = $this->ticketService->create($request->user(), $data, $files);
 
         return new SupportTicketResource($ticket);
     }
@@ -54,7 +66,8 @@ class CustomerTicketController extends Controller
         $ticket->load([
             'product',
             'license',
-            'replies' => fn ($q) => $q->where('is_internal', false)->orderBy('created_at'),
+            'attachments',
+            'replies' => fn ($q) => $q->where('is_internal', false)->with('attachments')->orderBy('created_at'),
         ]);
 
         return new SupportTicketResource($ticket);
@@ -64,8 +77,30 @@ class CustomerTicketController extends Controller
     {
         $this->authorize('reply', $ticket);
 
-        $reply = $this->ticketService->reply($ticket, $request->user(), $request->validated('message'));
+        $files = $request->file('attachments', []);
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+
+        $reply = $this->ticketService->reply(
+            $ticket,
+            $request->user(),
+            $request->validated('message'),
+            false,
+            $files,
+        );
 
         return new TicketReplyResource($reply);
+    }
+
+    public function downloadAttachment(
+        Request $request,
+        SupportTicket $ticket,
+        TicketAttachment $attachment,
+    ): StreamedResponse {
+        $this->authorize('view', $ticket);
+        abort_unless($attachment->ticket_id === $ticket->id, 404);
+
+        return Storage::disk($attachment->disk)->download($attachment->path, $attachment->filename);
     }
 }

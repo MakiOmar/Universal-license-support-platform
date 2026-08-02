@@ -10,8 +10,10 @@ use App\Http\Requests\Api\V1\Auth\ResetPasswordRequest;
 use App\Http\Requests\Api\V1\Auth\UpdateProfileRequest;
 use App\Http\Resources\Api\V1\CustomerResource;
 use App\Models\Customer;
+use App\Notifications\VerifyCustomerEmailNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
@@ -23,9 +25,12 @@ class AuthController extends Controller
         $customer = Customer::create($request->validated());
         $token = $customer->createToken('auth')->plainTextToken;
 
+        $this->sendVerificationCode($customer);
+
         return response()->json([
             'customer' => new CustomerResource($customer),
             'token' => $token,
+            'message' => 'Registered. Please verify your email with the code we sent.',
         ], 201);
     }
 
@@ -53,9 +58,54 @@ class AuthController extends Controller
         ]);
     }
 
+    public function logout(Request $request): JsonResponse
+    {
+        $request->user()?->currentAccessToken()?->delete();
+
+        return response()->json(['message' => 'Logged out.']);
+    }
+
+    public function sendVerificationEmail(Request $request): JsonResponse
+    {
+        /** @var Customer $customer */
+        $customer = $request->user();
+
+        if ($customer->email_verified_at) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+
+        $this->sendVerificationCode($customer);
+
+        return response()->json(['message' => 'Verification code sent.']);
+    }
+
+    public function verifyEmail(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'code' => ['required', 'string', 'size:6'],
+        ]);
+
+        /** @var Customer $customer */
+        $customer = $request->user();
+        $cached = Cache::get($this->verificationCacheKey($customer));
+
+        if (! $cached || ! hash_equals((string) $cached, (string) $data['code'])) {
+            throw ValidationException::withMessages([
+                'code' => [__('Invalid or expired verification code.')],
+            ]);
+        }
+
+        $customer->forceFill(['email_verified_at' => now()])->save();
+        Cache::forget($this->verificationCacheKey($customer));
+
+        return response()->json([
+            'message' => 'Email verified.',
+            'customer' => new CustomerResource($customer->fresh()),
+        ]);
+    }
+
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        // Always return a generic success payload; never leak whether the email exists.
         try {
             Password::broker('customers')->sendResetLink($request->only('email'));
         } catch (\Throwable) {
@@ -99,5 +149,17 @@ class AuthController extends Controller
         $customer->update($data);
 
         return new CustomerResource($customer->fresh());
+    }
+
+    protected function sendVerificationCode(Customer $customer): void
+    {
+        $code = (string) random_int(100000, 999999);
+        Cache::put($this->verificationCacheKey($customer), $code, now()->addHour());
+        $customer->notify(new VerifyCustomerEmailNotification($code));
+    }
+
+    protected function verificationCacheKey(Customer $customer): string
+    {
+        return 'customer_email_verify:'.$customer->id;
     }
 }

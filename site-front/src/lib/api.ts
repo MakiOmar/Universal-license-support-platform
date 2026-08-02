@@ -151,6 +151,21 @@ export function apiPut<T>(path: string, body?: unknown, auth = true): Promise<T>
   );
 }
 
+export function apiDelete<T>(path: string, auth = true): Promise<T> {
+  return apiRequest<T>(path, { method: "DELETE" }, auth);
+}
+
+export async function apiPostForm<T>(path: string, formData: FormData, auth = true): Promise<T> {
+  return apiRequest<T>(
+    path,
+    {
+      method: "POST",
+      body: formData,
+    },
+    auth,
+  );
+}
+
 export function unwrapData<T>(payload: T | { data: T }): T {
   if (payload && typeof payload === "object" && "data" in payload) {
     return (payload as { data: T }).data;

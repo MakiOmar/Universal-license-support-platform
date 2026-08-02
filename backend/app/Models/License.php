@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class License extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     public const STATUS_PENDING = 'pending';
 
@@ -40,6 +42,14 @@ class License extends Model
             'expires_at' => 'datetime',
             'support_expires_at' => 'datetime',
         ];
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['license_key', 'customer_id', 'status', 'max_activations', 'expires_at'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 
     public function product(): BelongsTo

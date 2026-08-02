@@ -4,18 +4,22 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\SupportTicket;
+use App\Models\TicketAttachment;
 use App\Models\TicketReply;
 use App\Models\User;
 use App\Notifications\TicketCreatedNotification;
+use App\Notifications\TicketRepliedNotification;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class TicketService
 {
-    public function create(Customer $customer, array $data): SupportTicket
+    public function create(Customer $customer, array $data, array $files = []): SupportTicket
     {
-        return DB::transaction(function () use ($customer, $data) {
+        return DB::transaction(function () use ($customer, $data, $files) {
             $ticket = SupportTicket::create([
                 'ticket_number' => $this->generateTicketNumber(),
                 'customer_id' => $customer->id,
@@ -28,7 +32,7 @@ class TicketService
                 'category' => $data['category'] ?? null,
             ]);
 
-            TicketReply::create([
+            $reply = TicketReply::create([
                 'ticket_id' => $ticket->id,
                 'author_type' => Customer::class,
                 'author_id' => $customer->id,
@@ -36,10 +40,12 @@ class TicketService
                 'is_internal' => false,
             ]);
 
+            $this->storeAttachments($ticket, $reply, $files, $customer->id);
+
             Notification::route('mail', config('mail.from.address'))
                 ->notify(new TicketCreatedNotification($ticket));
 
-            return $ticket->load(['customer', 'product', 'license']);
+            return $ticket->load(['customer', 'product', 'license', 'attachments']);
         });
     }
 
@@ -48,6 +54,7 @@ class TicketService
         Customer|User $author,
         string $message,
         bool $isInternal = false,
+        array $files = [],
     ): TicketReply {
         $reply = TicketReply::create([
             'ticket_id' => $ticket->id,
@@ -57,6 +64,9 @@ class TicketService
             'is_internal' => $isInternal,
         ]);
 
+        $uploaderId = $author instanceof User ? $author->id : $author->id;
+        $this->storeAttachments($ticket, $reply, $files, $uploaderId);
+
         if ($author instanceof User && $ticket->first_responded_at === null) {
             $ticket->update(['first_responded_at' => now()]);
         }
@@ -65,7 +75,40 @@ class TicketService
             $ticket->update(['status' => SupportTicket::STATUS_IN_PROGRESS]);
         }
 
-        return $reply;
+        if ($author instanceof User && ! $isInternal && $ticket->customer) {
+            $ticket->customer->notify(new TicketRepliedNotification($ticket, $reply));
+        }
+
+        return $reply->load('attachments');
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $files
+     */
+    public function storeAttachments(
+        SupportTicket $ticket,
+        ?TicketReply $reply,
+        array $files,
+        ?int $uploadedBy = null,
+    ): void {
+        foreach ($files as $file) {
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            $path = $file->store('ticket-attachments/'.$ticket->id, 'local');
+
+            TicketAttachment::create([
+                'ticket_id' => $ticket->id,
+                'reply_id' => $reply?->id,
+                'disk' => 'local',
+                'path' => $path,
+                'filename' => $file->getClientOriginalName(),
+                'size' => $file->getSize() ?: 0,
+                'mime' => $file->getClientMimeType(),
+                'uploaded_by' => $uploadedBy,
+            ]);
+        }
     }
 
     public function assign(SupportTicket $ticket, User $agent): SupportTicket

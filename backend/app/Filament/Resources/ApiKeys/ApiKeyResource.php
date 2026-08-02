@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ApiKeys;
 
+use App\Filament\Concerns\ChecksAdminRole;
 use App\Filament\Resources\ApiKeys\Pages\ManageApiKeys;
 use App\Models\ApiKey;
 use BackedEnum;
@@ -17,15 +18,48 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class ApiKeyResource extends Resource
 {
+    use ChecksAdminRole;
+
     protected static ?string $model = ApiKey::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFingerPrint;
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    public static function canViewAny(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
 
     public static function form(Schema $schema): Schema
     {

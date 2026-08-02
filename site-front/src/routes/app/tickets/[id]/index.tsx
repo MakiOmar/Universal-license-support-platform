@@ -1,7 +1,8 @@
 import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
 import { Link, useLocation } from "@builder.io/qwik-city";
 import type { DocumentHead } from "@builder.io/qwik-city";
-import { apiGet, apiPost, unwrapData } from "~/lib/api";
+import { apiGet, apiPostForm, getApiBase, unwrapData } from "~/lib/api";
+import { getToken } from "~/lib/auth";
 import {
   EmptyState,
   ErrorState,
@@ -17,6 +18,7 @@ export default component$(() => {
   const loading = useSignal(true);
   const error = useSignal("");
   const replyMessage = useSignal("");
+  const replyFiles = useSignal<File[]>([]);
   const replyLoading = useSignal(false);
   const replyError = useSignal("");
 
@@ -43,11 +45,14 @@ export default component$(() => {
     replyLoading.value = true;
     replyError.value = "";
     try {
-      await apiPost(`/customer/tickets/${loc.params.id}/replies`, {
-        message: replyMessage.value,
-      });
+      const formData = new FormData();
+      formData.append("message", replyMessage.value);
+      for (const file of replyFiles.value) {
+        formData.append("attachments[]", file);
+      }
+      await apiPostForm(`/customer/tickets/${loc.params.id}/replies`, formData);
       replyMessage.value = "";
-      alert("Reply sent.");
+      replyFiles.value = [];
       await loadTicket();
     } catch (err) {
       replyError.value = err instanceof Error ? err.message : "Failed to send reply.";
@@ -83,10 +88,34 @@ export default component$(() => {
                 </div>
               </div>
               <p style={{ marginTop: "1rem", whiteSpace: "pre-wrap" }}>{ticket.value.description}</p>
-              <p style={{ color: "var(--color-muted)", fontSize: "0.875rem" }}>
-                Opened {formatDate(ticket.value.created_at)}
-                {ticket.value.product?.name ? ` · ${ticket.value.product.name}` : ""}
-              </p>
+              {(ticket.value.attachments || []).length > 0 ? (
+                <ul>
+                  {ticket.value.attachments!.map((attachment) => (
+                    <li key={attachment.id}>
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onClick$={async () => {
+                          const token = getToken();
+                          const response = await fetch(
+                            `${getApiBase()}/customer/tickets/${ticket.value!.id}/attachments/${attachment.id}`,
+                            { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+                          );
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          const anchor = document.createElement("a");
+                          anchor.href = url;
+                          anchor.download = attachment.filename;
+                          anchor.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
+                        {attachment.filename}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           </section>
 
@@ -124,6 +153,19 @@ export default component$(() => {
                     value={replyMessage.value}
                     onInput$={(event) => {
                       replyMessage.value = (event.target as HTMLTextAreaElement).value;
+                    }}
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="attachments">Attachments</label>
+                  <input
+                    id="attachments"
+                    class="form-control"
+                    type="file"
+                    multiple
+                    onChange$={(event) => {
+                      const input = event.target as HTMLInputElement;
+                      replyFiles.value = input.files ? Array.from(input.files) : [];
                     }}
                   />
                 </div>

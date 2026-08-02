@@ -7,11 +7,18 @@ use App\Models\PricingTier;
 use App\Models\Product;
 use App\Services\LicenseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class PricingTierBillingCycleTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Notification::fake();
+    }
 
     public function test_one_time_tier_issues_license_without_expiration(): void
     {

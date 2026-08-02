@@ -55,7 +55,6 @@ class PaymentService
                 ],
             ];
 
-            // Recurring Stripe Checkout requires a recurring price interval.
             if ($isRecurring) {
                 $priceData['recurring'] = [
                     'interval' => $tier->billing_cycle === PricingTier::BILLING_MONTHLY ? 'month' : 'year',
@@ -68,8 +67,7 @@ class PaymentService
             ];
         }
 
-        return Session::create([
-            // One-time / lifetime → single payment; monthly / yearly → subscription.
+        $session = Session::create([
             'mode' => $isRecurring ? 'subscription' : 'payment',
             'customer_email' => $customer->email,
             'success_url' => $successUrl,
@@ -83,6 +81,15 @@ class PaymentService
                 'billing_cycle' => (string) $tier->billing_cycle,
             ],
         ]);
+
+        $payment->update([
+            'gateway_reference' => $session->id,
+            'meta' => array_merge($payment->meta ?? [], [
+                'stripe_session' => $session->id,
+            ]),
+        ]);
+
+        return $session;
     }
 
     public function handleWebhook(string $payload, ?string $signature): void
@@ -103,9 +110,21 @@ class PaymentService
             throw $e;
         }
 
-        if ($event->type === 'checkout.session.completed') {
-            $this->handleCheckoutCompleted($event->data->object);
-        }
+        $this->dispatchEvent($event->type, $event->data->object);
+    }
+
+    /**
+     * Process a verified Stripe event payload (also used by tests).
+     */
+    public function dispatchEvent(string $type, object $payload): void
+    {
+        match ($type) {
+            'checkout.session.completed' => $this->handleCheckoutCompleted($payload),
+            'invoice.paid' => $this->handleInvoicePaid($payload),
+            'customer.subscription.deleted' => $this->handleSubscriptionDeleted($payload),
+            'charge.refunded' => $this->handleChargeRefunded($payload),
+            default => null,
+        };
     }
 
     protected function handleCheckoutCompleted(object $session): void
@@ -133,13 +152,107 @@ class PaymentService
 
             $license = $this->licenseService->issue($customer, $tier->product, $tier);
 
+            $meta = array_merge($payment->meta ?? [], [
+                'stripe_session' => $session->id ?? null,
+                'stripe_subscription_id' => is_string($session->subscription ?? null)
+                    ? $session->subscription
+                    : ($session->subscription->id ?? null),
+                'stripe_customer_id' => is_string($session->customer ?? null)
+                    ? $session->customer
+                    : ($session->customer->id ?? null),
+                'stripe_payment_intent' => is_string($session->payment_intent ?? null)
+                    ? $session->payment_intent
+                    : ($session->payment_intent->id ?? null),
+            ]);
+
             $payment->update([
                 'license_id' => $license->id,
-                'gateway_reference' => $session->id ?? $session->payment_intent ?? null,
+                'gateway_reference' => $session->id ?? $payment->gateway_reference,
                 'status' => Payment::STATUS_COMPLETED,
                 'paid_at' => now(),
-                'meta' => ['stripe_session' => $session->id ?? null],
+                'meta' => $meta,
             ]);
         });
+    }
+
+    protected function handleInvoicePaid(object $invoice): void
+    {
+        $subscriptionId = is_string($invoice->subscription ?? null)
+            ? $invoice->subscription
+            : ($invoice->subscription->id ?? null);
+
+        // Skip the first invoice tied to checkout; license is issued on checkout.session.completed.
+        if (($invoice->billing_reason ?? null) === 'subscription_create') {
+            return;
+        }
+
+        if (! $subscriptionId) {
+            return;
+        }
+
+        $payment = Payment::query()
+            ->where('status', Payment::STATUS_COMPLETED)
+            ->whereNotNull('license_id')
+            ->where('meta->stripe_subscription_id', $subscriptionId)
+            ->latest('id')
+            ->first();
+
+        if (! $payment?->license) {
+            return;
+        }
+
+        $this->licenseService->renew($payment->license->load('pricingTier'));
+    }
+
+    protected function handleSubscriptionDeleted(object $subscription): void
+    {
+        $subscriptionId = $subscription->id ?? null;
+
+        if (! $subscriptionId) {
+            return;
+        }
+
+        $payment = Payment::query()
+            ->whereNotNull('license_id')
+            ->where('meta->stripe_subscription_id', $subscriptionId)
+            ->latest('id')
+            ->first();
+
+        if ($payment?->license) {
+            $this->licenseService->suspend($payment->license);
+        }
+    }
+
+    protected function handleChargeRefunded(object $charge): void
+    {
+        $paymentIntent = is_string($charge->payment_intent ?? null)
+            ? $charge->payment_intent
+            : ($charge->payment_intent->id ?? null);
+
+        $payment = null;
+
+        if ($paymentIntent) {
+            $payment = Payment::query()
+                ->where('meta->stripe_payment_intent', $paymentIntent)
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $payment && isset($charge->id)) {
+            $payment = Payment::query()
+                ->where('meta->stripe_charge_id', $charge->id)
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $payment) {
+            return;
+        }
+
+        $payment->update(['status' => Payment::STATUS_REFUNDED]);
+
+        if ($payment->license) {
+            $this->licenseService->suspend($payment->license);
+        }
     }
 }

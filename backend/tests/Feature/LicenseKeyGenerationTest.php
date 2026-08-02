@@ -7,11 +7,18 @@ use App\Models\Product;
 use App\Services\LicenseKeyGenerator;
 use App\Services\LicenseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class LicenseKeyGenerationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Notification::fake();
+    }
 
     public function test_generated_keys_use_product_key_prefix(): void
     {

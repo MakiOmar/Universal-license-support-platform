@@ -2,10 +2,14 @@
 
 namespace App\Filament\Resources\Licenses;
 
+use App\Filament\Concerns\ChecksAdminRole;
 use App\Filament\Resources\Licenses\Pages\ManageLicenses;
+use App\Models\Customer;
 use App\Models\License;
 use App\Models\PricingTier;
+use App\Services\LicenseService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -13,19 +17,53 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class LicenseResource extends Resource
 {
+    use ChecksAdminRole;
+
     protected static ?string $model = License::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedKey;
 
     protected static ?string $recordTitleAttribute = 'license_key';
+
+    public static function canViewAny(): bool
+    {
+        return static::canAccessPanelRoles();
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::isFullAdmin();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -113,6 +151,38 @@ class LicenseResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
+                Action::make('suspend')
+                    ->label('Suspend')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->visible(fn (License $record): bool => static::isFullAdmin() && $record->status !== License::STATUS_SUSPENDED)
+                    ->action(function (License $record, LicenseService $licenseService): void {
+                        $licenseService->suspend($record);
+                        Notification::make()->success()->title('License suspended')->send();
+                    }),
+                Action::make('renew')
+                    ->label('Renew')
+                    ->requiresConfirmation()
+                    ->visible(fn (): bool => static::isFullAdmin())
+                    ->action(function (License $record, LicenseService $licenseService): void {
+                        $licenseService->renew($record->load('pricingTier'));
+                        Notification::make()->success()->title('License renewed')->send();
+                    }),
+                Action::make('transfer')
+                    ->label('Transfer')
+                    ->visible(fn (): bool => static::isFullAdmin())
+                    ->form([
+                        Select::make('customer_id')
+                            ->label('New customer')
+                            ->options(fn () => Customer::query()->orderBy('email')->pluck('email', 'id')->all())
+                            ->searchable()
+                            ->required(),
+                    ])
+                    ->action(function (License $record, array $data, LicenseService $licenseService): void {
+                        $customer = Customer::query()->findOrFail($data['customer_id']);
+                        $licenseService->transfer($record, $customer);
+                        Notification::make()->success()->title('License transferred')->send();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

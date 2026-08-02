@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('licenses:expire')->daily();
+        $schedule->command('licenses:notify-expiring')->daily();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

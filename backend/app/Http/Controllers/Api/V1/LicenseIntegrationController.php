@@ -58,6 +58,12 @@ class LicenseIntegrationController extends Controller
             $request->ip(),
             $request->userAgent(),
             $apiKey?->product_id,
+            (bool) $request->boolean('replace_oldest'),
+            [
+                'device_name' => $request->validated('device_name'),
+                'platform' => $request->validated('platform'),
+                'app_version' => $request->validated('app_version'),
+            ],
         );
 
         return new LicenseActivationResource($activation);

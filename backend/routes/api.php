@@ -18,7 +18,7 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
-    Route::middleware('api.key')->group(function (): void {
+    Route::middleware(['api.key', 'throttle:60,1'])->group(function (): void {
         Route::post('/licenses/validate', [LicenseIntegrationController::class, 'validate']);
         Route::post('/licenses/activate', [LicenseIntegrationController::class, 'activate']);
         Route::post('/licenses/deactivate', [LicenseIntegrationController::class, 'deactivate']);
@@ -33,11 +33,21 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('/customer/licenses', [CustomerLicenseController::class, 'index']);
         Route::get('/customer/licenses/{license}', [CustomerLicenseController::class, 'show']);
+        Route::get('/customer/licenses/{license}/activations', [CustomerLicenseController::class, 'activations']);
+        Route::delete('/customer/licenses/{license}/activations/{activation}', [CustomerLicenseController::class, 'deactivateActivation']);
 
         Route::get('/customer/tickets', [CustomerTicketController::class, 'index']);
         Route::post('/customer/tickets', [CustomerTicketController::class, 'store']);
         Route::get('/customer/tickets/{ticket}', [CustomerTicketController::class, 'show']);
         Route::post('/customer/tickets/{ticket}/replies', [CustomerTicketController::class, 'reply']);
+        Route::get('/customer/tickets/{ticket}/attachments/{attachment}', [CustomerTicketController::class, 'downloadAttachment']);
+
+        Route::get('/customer/payments', [\App\Http\Controllers\Api\V1\CustomerPaymentController::class, 'index']);
+        Route::get('/customer/payments/{payment}', [\App\Http\Controllers\Api\V1\CustomerPaymentController::class, 'show']);
+
+        Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::post('/auth/email/verification-notification', [AuthController::class, 'sendVerificationEmail']);
+        Route::post('/auth/email/verify', [AuthController::class, 'verifyEmail']);
 
         Route::post('/checkout/session', [CheckoutController::class, 'create']);
     });

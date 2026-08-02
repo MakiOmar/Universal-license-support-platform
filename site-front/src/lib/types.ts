@@ -37,13 +37,27 @@ export interface Product {
   updated_at?: string;
 }
 
+export interface LicenseActivation {
+  id: number;
+  activation_type: string;
+  activation_value: string;
+  activation_hash: string;
+  device_name?: string | null;
+  platform?: string | null;
+  app_version?: string | null;
+  status: string;
+  activated_at?: string | null;
+  last_check_at?: string | null;
+}
+
 export interface License {
   id: number;
   license_key: string;
-  product_id: number;
-  customer_id: number;
+  product_id?: number;
+  customer_id?: number;
   pricing_tier_id?: number | null;
   max_activations?: number;
+  activations_used?: number;
   status: string;
   license_type?: string | null;
   purchased_at?: string | null;
@@ -51,18 +65,29 @@ export interface License {
   support_expires_at?: string | null;
   product?: Product;
   pricing_tier?: PricingTier;
+  activations?: LicenseActivation[];
   activations_count?: number;
   created_at?: string;
   updated_at?: string;
 }
 
+export interface TicketAttachment {
+  id: number;
+  filename: string;
+  size?: number;
+  mime?: string | null;
+  reply_id?: number | null;
+  created_at?: string;
+}
+
 export interface TicketReply {
   id: number;
-  ticket_id: number;
-  author_type: "customer" | "user" | "system";
+  ticket_id?: number;
+  author_type: string;
   author_id?: number | null;
   message: string;
   is_internal?: boolean;
+  attachments?: TicketAttachment[];
   created_at?: string;
   updated_at?: string;
 }
@@ -81,9 +106,24 @@ export interface Ticket {
   product?: Product | null;
   license?: License | null;
   replies?: TicketReply[];
+  attachments?: TicketAttachment[];
   created_at?: string;
   updated_at?: string;
   resolved_at?: string | null;
+}
+
+export interface Payment {
+  id: number;
+  amount: number | string;
+  currency: string;
+  status: string;
+  gateway?: string;
+  gateway_reference?: string | null;
+  paid_at?: string | null;
+  created_at?: string;
+  pricing_tier?: PricingTier | null;
+  product?: Product | null;
+  license?: License | null;
 }
 
 export interface AuthLoginResponse {
@@ -99,5 +139,6 @@ export interface PaginatedResponse<T> {
 }
 
 export interface CheckoutSessionResponse {
-  url: string;
+  url?: string;
+  checkout_url?: string;
 }
