@@ -56,9 +56,15 @@ class ProductResource extends Resource
                 TextInput::make('version')
                     ->maxLength(50),
                 TextInput::make('key_prefix')
+                    ->label('License key prefix')
                     ->required()
                     ->maxLength(20)
-                    ->default('ULSP'),
+                    ->default('ULSP')
+                    ->unique(ignoreRecord: true)
+                    ->regex('/^[A-Za-z0-9]+$/')
+                    ->dehydrateStateUsing(fn (?string $state): string => strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $state) ?: 'ULSP'))
+                    ->extraInputAttributes(['style' => 'text-transform: uppercase'])
+                    ->helperText('Used when issuing licenses, e.g. ULSPPRV-XXXX-XXXX-XXXX-XXXX. Must be unique.'),
                 Select::make('status')
                     ->required()
                     ->options([
@@ -81,6 +87,10 @@ class ProductResource extends Resource
                     ->searchable(),
                 TextColumn::make('type')
                     ->badge(),
+                TextColumn::make('key_prefix')
+                    ->label('Key prefix')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('version'),
                 TextColumn::make('status')
                     ->badge(),

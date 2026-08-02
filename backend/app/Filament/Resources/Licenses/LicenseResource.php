@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Licenses;
 
 use App\Filament\Resources\Licenses\Pages\ManageLicenses;
 use App\Models\License;
+use App\Models\PricingTier;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -30,22 +31,42 @@ class LicenseResource extends Resource
     {
         return $schema
             ->components([
+                // Auto-generated on create; shown read-only when editing.
                 TextInput::make('license_key')
-                    ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true),
+                    ->label('License key')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->hiddenOn('create')
+                    ->helperText('Generated automatically from the product key prefix.'),
                 Select::make('product_id')
                     ->relationship('product', 'name')
                     ->required()
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->live()
+                    ->afterStateUpdated(fn (callable $set) => $set('pricing_tier_id', null))
+                    ->helperText('License key uses this product\'s key prefix.'),
                 Select::make('customer_id')
                     ->relationship('customer', 'email')
                     ->required()
                     ->searchable()
                     ->preload(),
                 Select::make('pricing_tier_id')
-                    ->relationship('pricingTier', 'name')
+                    ->label('Pricing tier')
+                    ->options(function (callable $get): array {
+                        $productId = $get('product_id');
+
+                        if (! $productId) {
+                            return [];
+                        }
+
+                        return PricingTier::query()
+                            ->where('product_id', $productId)
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                            ->all();
+                    })
                     ->searchable()
                     ->preload(),
                 TextInput::make('max_activations')
@@ -60,9 +81,12 @@ class LicenseResource extends Resource
                         License::STATUS_SUSPENDED => 'Suspended',
                         License::STATUS_CANCELLED => 'Cancelled',
                     ])
-                    ->required(),
-                DateTimePicker::make('purchased_at'),
-                DateTimePicker::make('expires_at'),
+                    ->required()
+                    ->default(License::STATUS_ACTIVE),
+                DateTimePicker::make('purchased_at')
+                    ->default(now()),
+                DateTimePicker::make('expires_at')
+                    ->helperText('Leave empty to use the pricing tier billing cycle (default: 1 year).'),
                 DateTimePicker::make('support_expires_at'),
             ]);
     }
@@ -76,6 +100,9 @@ class LicenseResource extends Resource
                     ->copyable(),
                 TextColumn::make('product.name')
                     ->sortable(),
+                TextColumn::make('product.key_prefix')
+                    ->label('Prefix')
+                    ->toggleable(),
                 TextColumn::make('customer.email')
                     ->searchable(),
                 TextColumn::make('status')

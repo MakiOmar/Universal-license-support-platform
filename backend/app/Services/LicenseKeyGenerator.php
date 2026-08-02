@@ -9,7 +9,7 @@ class LicenseKeyGenerator
 {
     public function generate(Product $product): string
     {
-        $prefix = strtoupper($product->key_prefix ?: 'ULSP');
+        $prefix = $this->normalizePrefix($product->key_prefix);
         $segments = [];
 
         for ($i = 0; $i < 4; $i++) {
@@ -17,5 +17,15 @@ class LicenseKeyGenerator
         }
 
         return $prefix.'-'.implode('-', $segments);
+    }
+
+    /**
+     * Normalize a product key prefix for license keys (uppercase alphanumeric).
+     */
+    public function normalizePrefix(?string $prefix): string
+    {
+        $normalized = strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $prefix));
+
+        return $normalized !== '' ? $normalized : 'ULSP';
     }
 }

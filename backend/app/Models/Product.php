@@ -21,6 +21,13 @@ class Product extends Model
         'status',
     ];
 
+    protected function setKeyPrefixAttribute(?string $value): void
+    {
+        $normalized = strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $value));
+
+        $this->attributes['key_prefix'] = $normalized !== '' ? $normalized : 'ULSP';
+    }
+
     public function pricingTiers(): HasMany
     {
         return $this->hasMany(PricingTier::class);
