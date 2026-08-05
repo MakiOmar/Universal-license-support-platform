@@ -13,6 +13,7 @@ class LicenseResource extends JsonResource
             'id' => $this->id,
             'license_key' => $this->license_key,
             'status' => $this->status,
+            'is_trial' => (bool) $this->is_trial,
             'max_activations' => $this->max_activations,
             'activations_used' => $this->when(
                 $this->relationLoaded('activations'),

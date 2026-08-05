@@ -21,6 +21,7 @@ class ApiKey extends Model
         'key',
         'secret_hash',
         'rate_limit',
+        'trial_days',
         'status',
         'last_used_at',
         'expires_at',
@@ -33,9 +34,21 @@ class ApiKey extends Model
     protected function casts(): array
     {
         return [
+            'rate_limit' => 'integer',
+            'trial_days' => 'integer',
             'last_used_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
+    }
+
+    public function allowsTrials(): bool
+    {
+        return $this->trialDays() > 0 && $this->product_id !== null;
+    }
+
+    public function trialDays(): int
+    {
+        return max(0, (int) ($this->trial_days ?? 0));
     }
 
     public function customer(): BelongsTo

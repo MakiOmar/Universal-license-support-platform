@@ -75,7 +75,10 @@ class ApiKeyResource extends Resource
                 Select::make('product_id')
                     ->relationship('product', 'name')
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->live()
+                    ->required(fn (callable $get): bool => (int) ($get('trial_days') ?? 0) > 0)
+                    ->helperText('Required when trial days is greater than zero.'),
                 TextInput::make('key')
                     ->default(fn () => 'ulsp_'.Str::random(32))
                     ->required()
@@ -88,6 +91,14 @@ class ApiKeyResource extends Resource
                 TextInput::make('rate_limit')
                     ->numeric()
                     ->default(1000),
+                TextInput::make('trial_days')
+                    ->label('Trial days')
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(0)
+                    ->required()
+                    ->live()
+                    ->helperText('Set greater than 0 to enable POST /licenses/start-trial for this app. Product is required.'),
                 Select::make('status')
                     ->options([
                         ApiKey::STATUS_ACTIVE => 'Active',
@@ -109,6 +120,9 @@ class ApiKeyResource extends Resource
                     ->limit(20),
                 TextColumn::make('customer.email'),
                 TextColumn::make('product.name'),
+                TextColumn::make('trial_days')
+                    ->label('Trial days')
+                    ->sortable(),
                 TextColumn::make('status')
                     ->badge(),
                 TextColumn::make('last_used_at')

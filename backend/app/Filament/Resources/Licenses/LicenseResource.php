@@ -17,6 +17,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -121,6 +122,12 @@ class LicenseResource extends Resource
                     ])
                     ->required()
                     ->default(License::STATUS_ACTIVE),
+                // Trials are issued by the integration API; kept read-only in admin.
+                Toggle::make('is_trial')
+                    ->label('Trial license')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->hiddenOn('create'),
                 DateTimePicker::make('purchased_at')
                     ->default(now()),
                 DateTimePicker::make('expires_at')
@@ -145,6 +152,11 @@ class LicenseResource extends Resource
                     ->searchable(),
                 TextColumn::make('status')
                     ->badge(),
+                TextColumn::make('is_trial')
+                    ->label('Trial')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Trial' : 'Paid')
+                    ->color(fn (bool $state): string => $state ? 'warning' : 'success'),
                 TextColumn::make('max_activations'),
                 TextColumn::make('expires_at')
                     ->dateTime()

@@ -21,13 +21,15 @@ Create the API key in Filament (**API Keys**) or use the demo key after seeding:
 
 | Term | Meaning for mobile |
 |---|---|
-| **License key** | Purchased key (e.g. `DEMO-AO1V-FVCP-W6WR-VOLI`) entered by the user |
-| **Activate / register** | Bind this device to the license (`POST /licenses/activate`) |
+| **License key** | Purchased or trial key returned by the API |
+| **Start trial** | Mint a short-lived trial for this device (`POST /licenses/start-trial`) — no key paste |
+| **Activate / register** | Bind this device to an existing license (`POST /licenses/activate`) |
 | **Validate** | Check the license is still active for this device (`POST /licenses/validate`) |
 | **Deactivate** | Unbind this device (`POST /licenses/deactivate`) |
 | **activation_type** | Use `device_id` for mobile apps |
 | **activation_value** | Stable device identifier (see below) |
-| **activation_hash** | Server-generated id for this binding — store it after activate for deactivate |
+| **activation_hash** | Server-generated id for this binding — store it after activate/trial for deactivate |
+| **trial_days** | Set on the Filament API key (`> 0` enables trials for that app/product) |
 
 ### Device ID recommendations
 
@@ -41,7 +43,84 @@ Do **not** put PII (email, phone) in `activation_value`.
 
 ---
 
-## Recommended app flow
+## Guest trial flow (Start trial)
+
+Enable trials by setting **Trial days** on the product API key in Filament (`trial_days > 0`). The key must be scoped to a product. One trial forever per device per product.
+
+```
+┌──────────────┐   start-trial    ┌─────────────┐
+│ User taps    │ ───────────────► │ ULSP API    │
+│ Start trial  │                  │             │
+└──────────────┘                  └──────┬──────┘
+                                         │ license_key + activation
+                                         ▼
+                                  ┌─────────────┐
+                                  │ Save locally│
+                                  │ key + hash  │
+                                  └──────┬──────┘
+                                         │
+                              same validate loop as paid
+```
+
+1. User taps **Start free trial** (no account, no pasted key).
+2. App calls **start-trial** with `device_id` + device value (+ optional meta).
+3. Persist returned `license.license_key` and `activation.activation_hash`.
+4. Use **validate** on launch exactly like a paid license until `expires_at`.
+
+### `POST /api/v1/licenses/start-trial`
+
+```http
+POST /api/v1/licenses/start-trial
+X-API-Key: ulsp_demo_api_key_123456
+Content-Type: application/json
+
+{
+  "activation_type": "device_id",
+  "activation_value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "device_name": "Pixel 8",
+  "platform": "android",
+  "app_version": "1.2.0"
+}
+```
+
+### Success (201)
+
+```json
+{
+  "license": {
+    "id": 1,
+    "license_key": "MOB-XXXX-XXXX-XXXX-XXXX",
+    "status": "active",
+    "is_trial": true,
+    "max_activations": 1,
+    "expires_at": "2026-08-19T22:00:00.000000Z",
+    "product": { "id": 1, "name": "Mobile App", "slug": "mobile-app" }
+  },
+  "activation": {
+    "id": 1,
+    "activation_type": "device_id",
+    "activation_value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "activation_hash": "...",
+    "device_name": "Pixel 8",
+    "platform": "android",
+    "app_version": "1.2.0",
+    "status": "active"
+  },
+  "expires_at": "2026-08-19T22:00:00.000000Z"
+}
+```
+
+### Errors (422)
+
+| Condition | Field |
+|---|---|
+| `trial_days` is 0 | `trial` — trials disabled |
+| API key has no `product_id` | `trial` — product required |
+| Same device already used a trial for this product | `trial` — already used |
+
+---
+
+## Recommended paid-key app flow
 
 ```
 ┌─────────────┐     activate      ┌─────────────┐

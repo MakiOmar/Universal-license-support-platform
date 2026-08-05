@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ApiKey;
 use App\Models\Customer;
 use App\Models\License;
 use App\Models\LicenseActivation;
@@ -10,6 +11,8 @@ use App\Models\Product;
 use App\Notifications\LicenseIssuedNotification;
 use App\Notifications\LicenseSuspendedNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LicenseService
@@ -45,6 +48,7 @@ class LicenseService
                 'pricing_tier_id' => $tier?->id,
                 'max_activations' => $maxActivations,
                 'status' => $options['status'] ?? License::STATUS_ACTIVE,
+                'is_trial' => (bool) ($options['is_trial'] ?? false),
                 'purchased_at' => $options['purchased_at'] ?? now(),
                 'expires_at' => $expiresAt,
                 'support_expires_at' => array_key_exists('support_expires_at', $options)
@@ -53,10 +57,113 @@ class LicenseService
             ]);
 
             $license->load(['product', 'customer']);
-            $customer->notify(new LicenseIssuedNotification($license));
+
+            if (($options['notify'] ?? true) === true) {
+                $customer->notify(new LicenseIssuedNotification($license));
+            }
 
             return $license;
         });
+    }
+
+    /**
+     * Issue and activate a guest device trial for the API key's product.
+     *
+     * @param  array{device_name?: string|null, platform?: string|null, app_version?: string|null}  $deviceMeta
+     * @return array{license: License, activation: LicenseActivation}
+     */
+    public function startTrial(
+        ApiKey $apiKey,
+        string $activationType,
+        string $activationValue,
+        ?string $ipAddress = null,
+        ?string $userAgent = null,
+        array $deviceMeta = [],
+    ): array {
+        if ($apiKey->trialDays() < 1) {
+            throw ValidationException::withMessages([
+                'trial' => [__('Trials are not enabled for this API key.')],
+            ]);
+        }
+
+        if (! $apiKey->product_id) {
+            throw ValidationException::withMessages([
+                'trial' => [__('This API key must be scoped to a product to issue trials.')],
+            ]);
+        }
+
+        $product = Product::query()->findOrFail($apiKey->product_id);
+        $hash = LicenseActivation::hashActivation($activationType, $activationValue);
+
+        $alreadyUsed = LicenseActivation::query()
+            ->where('activation_hash', $hash)
+            ->whereHas('license', function ($query) use ($product): void {
+                $query->where('product_id', $product->id)
+                    ->where('is_trial', true);
+            })
+            ->exists();
+
+        if ($alreadyUsed) {
+            throw ValidationException::withMessages([
+                'trial' => [__('A trial has already been used on this device for this product.')],
+            ]);
+        }
+
+        return DB::transaction(function () use (
+            $apiKey,
+            $product,
+            $activationType,
+            $activationValue,
+            $ipAddress,
+            $userAgent,
+            $deviceMeta,
+        ): array {
+            $license = $this->issue(
+                $this->trialCustomer(),
+                $product,
+                null,
+                [
+                    'max_activations' => 1,
+                    'expires_at' => now()->addDays($apiKey->trialDays()),
+                    'is_trial' => true,
+                    'notify' => false,
+                    'status' => License::STATUS_ACTIVE,
+                ],
+            );
+
+            $activation = $this->activate(
+                $license->license_key,
+                $activationType,
+                $activationValue,
+                $ipAddress,
+                $userAgent,
+                $product->id,
+                false,
+                $deviceMeta,
+            );
+
+            return [
+                'license' => $license->fresh(['product']),
+                'activation' => $activation,
+            ];
+        });
+    }
+
+    public function trialCustomer(): Customer
+    {
+        $email = (string) config('ulsp.trial_customer_email', 'trials@ulsp.local');
+
+        return Customer::query()->firstOrCreate(
+            ['email' => $email],
+            [
+                'password' => Hash::make(Str::random(64)),
+                'first_name' => 'Trial',
+                'last_name' => 'Guest',
+                'company' => 'ULSP System',
+                'status' => 'active',
+                'email_verified_at' => now(),
+            ],
+        );
     }
 
     public function validate(

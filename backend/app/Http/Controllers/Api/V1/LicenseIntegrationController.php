@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\License\ActivateLicenseRequest;
 use App\Http\Requests\Api\V1\License\DeactivateLicenseRequest;
+use App\Http\Requests\Api\V1\License\StartTrialRequest;
 use App\Http\Requests\Api\V1\License\ValidateLicenseRequest;
 use App\Http\Resources\Api\V1\LicenseActivationResource;
 use App\Http\Resources\Api\V1\LicenseResource;
 use App\Models\License;
-use App\Models\LicenseActivation;
 use App\Services\LicenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,6 +50,31 @@ class LicenseIntegrationController extends Controller
         }
 
         return response()->json($response);
+    }
+
+    public function startTrial(StartTrialRequest $request): JsonResponse
+    {
+        /** @var \App\Models\ApiKey $apiKey */
+        $apiKey = $request->attributes->get('api_key');
+
+        $result = $this->licenseService->startTrial(
+            $apiKey,
+            $request->validated('activation_type'),
+            $request->validated('activation_value'),
+            $request->ip(),
+            $request->userAgent(),
+            [
+                'device_name' => $request->validated('device_name'),
+                'platform' => $request->validated('platform'),
+                'app_version' => $request->validated('app_version'),
+            ],
+        );
+
+        return response()->json([
+            'license' => new LicenseResource($result['license']),
+            'activation' => new LicenseActivationResource($result['activation']),
+            'expires_at' => $result['license']->expires_at,
+        ], 201);
     }
 
     public function activate(ActivateLicenseRequest $request): LicenseActivationResource

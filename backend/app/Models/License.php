@@ -30,6 +30,7 @@ class License extends Model
         'pricing_tier_id',
         'max_activations',
         'status',
+        'is_trial',
         'purchased_at',
         'expires_at',
         'support_expires_at',
@@ -38,6 +39,7 @@ class License extends Model
     protected function casts(): array
     {
         return [
+            'is_trial' => 'boolean',
             'purchased_at' => 'datetime',
             'expires_at' => 'datetime',
             'support_expires_at' => 'datetime',

@@ -22,6 +22,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/licenses/validate', [LicenseIntegrationController::class, 'validate']);
         Route::post('/licenses/activate', [LicenseIntegrationController::class, 'activate']);
         Route::post('/licenses/deactivate', [LicenseIntegrationController::class, 'deactivate']);
+        Route::post('/licenses/start-trial', [LicenseIntegrationController::class, 'startTrial']);
         Route::get('/licenses/by-key/{licenseKey}/activations', [LicenseIntegrationController::class, 'activations']);
     });
 
