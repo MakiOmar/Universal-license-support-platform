@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\License\StartTrialRequest;
 use App\Http\Requests\Api\V1\License\ValidateLicenseRequest;
 use App\Http\Resources\Api\V1\LicenseActivationResource;
 use App\Http\Resources\Api\V1\LicenseResource;
+use App\Http\Resources\Api\V1\ProductResource;
 use App\Models\License;
 use App\Services\LicenseService;
 use Illuminate\Http\JsonResponse;
@@ -42,14 +43,33 @@ class LicenseIntegrationController extends Controller
         ];
 
         if (isset($result['license'])) {
-            $response['license'] = new LicenseResource($result['license']->load(['product']));
+            $license = $result['license']->load(['product']);
+            $response['license'] = new LicenseResource($license);
             $response['activation_valid'] = $result['activation_valid'] ?? null;
             $response['activations_used'] = $result['activations_used'] ?? null;
             $response['max_activations'] = $result['max_activations'] ?? null;
             $response['expires_at'] = $result['expires_at'] ?? null;
+            $response['days_remaining'] = $license->daysRemaining();
+            $response['is_trial'] = (bool) $license->is_trial;
         }
 
         return response()->json($response);
+    }
+
+    public function trialInfo(Request $request): JsonResponse
+    {
+        /** @var \App\Models\ApiKey $apiKey */
+        $apiKey = $request->attributes->get('api_key');
+        $apiKey->loadMissing('product');
+
+        $info = $apiKey->trialInfo();
+
+        return response()->json([
+            ...$info,
+            'product' => $apiKey->product
+                ? new ProductResource($apiKey->product)
+                : null,
+        ]);
     }
 
     public function startTrial(StartTrialRequest $request): JsonResponse
@@ -70,10 +90,14 @@ class LicenseIntegrationController extends Controller
             ],
         );
 
+        $license = $result['license'];
+
         return response()->json([
-            'license' => new LicenseResource($result['license']),
+            'trial_days' => $apiKey->trialDays(),
+            'days_remaining' => $license->daysRemaining(),
+            'license' => new LicenseResource($license),
             'activation' => new LicenseActivationResource($result['activation']),
-            'expires_at' => $result['license']->expires_at,
+            'expires_at' => $license->expires_at,
         ], 201);
     }
 

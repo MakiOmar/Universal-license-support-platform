@@ -67,6 +67,31 @@ Enable trials by setting **Trial days** on the product API key in Filament (`tri
 3. Persist returned `license.license_key` and `activation.activation_hash`.
 4. Use **validate** on launch exactly like a paid license until `expires_at`.
 
+### `GET /api/v1/licenses/trial-info`
+
+Use this before showing a “Start N-day trial” button.
+
+```http
+GET /api/v1/licenses/trial-info
+X-API-Key: ulsp_demo_api_key_123456
+Accept: application/json
+```
+
+```json
+{
+  "enabled": true,
+  "trial_days": 14,
+  "product_id": 1,
+  "product": {
+    "id": 1,
+    "name": "Mobile App",
+    "slug": "mobile-app"
+  }
+}
+```
+
+When `enabled` is `false`, hide the trial button (`trial_days` is `0` and/or the key has no product).
+
 ### `POST /api/v1/licenses/start-trial`
 
 ```http
@@ -87,6 +112,8 @@ Content-Type: application/json
 
 ```json
 {
+  "trial_days": 14,
+  "days_remaining": 14,
   "license": {
     "id": 1,
     "license_key": "MOB-XXXX-XXXX-XXXX-XXXX",
@@ -94,6 +121,7 @@ Content-Type: application/json
     "is_trial": true,
     "max_activations": 1,
     "expires_at": "2026-08-19T22:00:00.000000Z",
+    "days_remaining": 14,
     "product": { "id": 1, "name": "Mobile App", "slug": "mobile-app" }
   },
   "activation": {
@@ -109,6 +137,8 @@ Content-Type: application/json
   "expires_at": "2026-08-19T22:00:00.000000Z"
 }
 ```
+
+`trial_days` is the configured length from the API key. `days_remaining` is how many days are left until `expires_at` (also returned on **validate**).
 
 ### Errors (422)
 

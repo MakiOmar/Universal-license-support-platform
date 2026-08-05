@@ -51,6 +51,20 @@ class ApiKey extends Model
         return max(0, (int) ($this->trial_days ?? 0));
     }
 
+    /**
+     * Lightweight payload for apps that need trial length before start-trial.
+     *
+     * @return array{enabled: bool, trial_days: int, product_id: int|null}
+     */
+    public function trialInfo(): array
+    {
+        return [
+            'enabled' => $this->allowsTrials(),
+            'trial_days' => $this->trialDays(),
+            'product_id' => $this->product_id ? (int) $this->product_id : null,
+        ];
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);

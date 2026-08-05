@@ -22,6 +22,7 @@ class LicenseResource extends JsonResource
             ),
             'purchased_at' => $this->purchased_at,
             'expires_at' => $this->expires_at,
+            'days_remaining' => $this->daysRemaining(),
             'support_expires_at' => $this->support_expires_at,
             'product' => new ProductResource($this->whenLoaded('product')),
             'pricing_tier' => new PricingTierResource($this->whenLoaded('pricingTier')),

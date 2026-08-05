@@ -93,6 +93,24 @@ class License extends Model
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
+    /**
+     * Whole days remaining until expires_at (ceil). Null if never expires.
+     */
+    public function daysRemaining(): ?int
+    {
+        if ($this->expires_at === null) {
+            return null;
+        }
+
+        if ($this->expires_at->isPast()) {
+            return 0;
+        }
+
+        $seconds = now()->diffInSeconds($this->expires_at, false);
+
+        return (int) max(0, (int) ceil($seconds / 86400));
+    }
+
     public function activeActivationsCount(): int
     {
         return $this->activations()->where('status', LicenseActivation::STATUS_ACTIVE)->count();

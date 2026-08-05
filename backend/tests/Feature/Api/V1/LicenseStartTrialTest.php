@@ -55,12 +55,14 @@ class LicenseStartTrialTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('license.is_trial', true)
             ->assertJsonPath('license.status', License::STATUS_ACTIVE)
+            ->assertJsonPath('trial_days', 14)
             ->assertJsonPath('activation.activation_type', 'device_id')
             ->assertJsonPath('activation.activation_value', 'device-uuid-abc')
             ->assertJsonPath('activation.device_name', 'Pixel 8');
 
         $this->assertNotNull($response->json('license.license_key'));
         $this->assertNotNull($response->json('expires_at'));
+        $this->assertSame(14, $response->json('days_remaining'));
 
         $this->assertDatabaseHas('licenses', [
             'product_id' => $this->product->id,
@@ -135,6 +137,30 @@ class LicenseStartTrialTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('valid', true)
-            ->assertJsonPath('activation_valid', true);
+            ->assertJsonPath('activation_valid', true)
+            ->assertJsonPath('is_trial', true)
+            ->assertJsonPath('days_remaining', 14);
+    }
+
+    public function test_trial_info_returns_configured_days(): void
+    {
+        $this->withHeader('X-API-Key', $this->apiKey->key)
+            ->getJson('/api/v1/licenses/trial-info')
+            ->assertOk()
+            ->assertJsonPath('enabled', true)
+            ->assertJsonPath('trial_days', 14)
+            ->assertJsonPath('product_id', $this->product->id)
+            ->assertJsonPath('product.slug', 'mobile-app');
+    }
+
+    public function test_trial_info_disabled_when_trial_days_zero(): void
+    {
+        $this->apiKey->update(['trial_days' => 0]);
+
+        $this->withHeader('X-API-Key', $this->apiKey->key)
+            ->getJson('/api/v1/licenses/trial-info')
+            ->assertOk()
+            ->assertJsonPath('enabled', false)
+            ->assertJsonPath('trial_days', 0);
     }
 }
