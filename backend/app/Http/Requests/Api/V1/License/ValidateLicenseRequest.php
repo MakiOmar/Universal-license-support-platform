@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Api\V1\License;
 
+use App\Http\Requests\Api\V1\License\Concerns\NormalizesDeviceMeta;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ValidateLicenseRequest extends FormRequest
 {
+    use NormalizesDeviceMeta;
+
     public function authorize(): bool
     {
         return true;

@@ -84,6 +84,32 @@ class LicenseActivationTest extends TestCase
         ]);
     }
 
+    public function test_activate_accepts_camel_case_device_meta(): void
+    {
+        $response = $this->withHeader('X-API-Key', $this->apiKey->key)
+            ->postJson('/api/v1/licenses/activate', [
+                'license_key' => $this->license->license_key,
+                'activation_type' => 'device_id',
+                'activation_value' => 'android-id-abc',
+                'deviceName' => 'Pixel 8',
+                'platform' => 'android',
+                'appVersion' => '1.0.0',
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.device_name', 'Pixel 8')
+            ->assertJsonPath('data.platform', 'android')
+            ->assertJsonPath('data.app_version', '1.0.0');
+
+        $this->assertDatabaseHas('license_activations', [
+            'license_id' => $this->license->id,
+            'activation_value' => 'android-id-abc',
+            'device_name' => 'Pixel 8',
+            'platform' => 'android',
+            'app_version' => '1.0.0',
+        ]);
+    }
+
     public function test_rejects_request_without_api_key(): void
     {
         $response = $this->postJson('/api/v1/licenses/validate', [
